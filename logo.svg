@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="120" viewBox="0 0 440 120" role="img" aria-label="NameVibe — Chaldean Numerology Name Calculator">
+  <defs>
+    <linearGradient id="lg-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffe9a8"/>
+      <stop offset="55%" stop-color="#f5c451"/>
+      <stop offset="100%" stop-color="#e0a52f"/>
+    </linearGradient>
+    <linearGradient id="lg-violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a98bff"/>
+      <stop offset="100%" stop-color="#7c5cff"/>
+    </linearGradient>
+    <radialGradient id="lg-core" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#fff6df"/>
+      <stop offset="60%" stop-color="#ffe9a8"/>
+      <stop offset="100%" stop-color="#f5c451"/>
+    </radialGradient>
+    <linearGradient id="lg-word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f5c451"/>
+      <stop offset="60%" stop-color="#c9a9ff"/>
+      <stop offset="100%" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ============ ICON MARK ============ -->
+  <g transform="translate(60,60)">
+    <!-- outer vibration rings (the "Vibe") -->
+    <g fill="none" stroke="url(#lg-violet)" stroke-linecap="round" opacity=".9">
+      <circle r="50" stroke-width="2" opacity=".35"/>
+      <path d="M-46 0 A46 46 0 0 1 46 0" stroke-width="3" opacity=".55"/>
+      <path d="M-34 0 A34 34 0 0 0 34 0" stroke-width="3" opacity=".75"/>
+    </g>
+
+    <!-- mandala petals -->
+    <g fill="url(#lg-gold)" opacity=".92">
+      <g id="petal-set">
+        <path d="M0 -50 C7 -38 7 -30 0 -22 C-7 -30 -7 -38 0 -50 Z"/>
+      </g>
+      <use href="#petal-set" transform="rotate(45)"/>
+      <use href="#petal-set" transform="rotate(90)"/>
+      <use href="#petal-set" transform="rotate(135)"/>
+      <use href="#petal-set" transform="rotate(180)"/>
+      <use href="#petal-set" transform="rotate(225)"/>
+      <use href="#petal-set" transform="rotate(270)"/>
+      <use href="#petal-set" transform="rotate(315)"/>
+    </g>
+
+    <!-- glowing core -->
+    <circle r="26" fill="url(#lg-core)"/>
+    <circle r="26" fill="none" stroke="#ffffff" stroke-width="1.5" opacity=".5"/>
+
+    <!-- stylised "N" inside the core -->
+    <path d="M-11 11 V-11 L11 11 V-11"
+          fill="none" stroke="#2a1a4a" stroke-width="4.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- little accent stars -->
+    <g fill="#ffffff">
+      <path d="M40 -34 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z" opacity=".9"/>
+      <circle cx="-44" cy="30" r="2.4" opacity=".8"/>
+      <circle cx="44" cy="34" r="1.8" opacity=".7"/>
+    </g>
+  </g>
+
+  <!-- ============ WORDMARK ============ -->
+  <g transform="translate(120,0)">
+    <text x="0" y="66" font-family="Georgia, 'Times New Roman', serif"
+          font-size="46" font-weight="700" fill="url(#lg-word)">Name<tspan fill="#f5c451">Vibe</tspan></text>
+    <text x="2" y="92" font-family="Arial, Helvetica, sans-serif"
+          font-size="14.5" letter-spacing="2.2" fill="#9a8cc4">CHALDEAN NUMEROLOGY</text>
+  </g>
+</svg>

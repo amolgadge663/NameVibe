@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="NameVibe — Chaldean Numerology Name Calculator by Amol Gadage">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#241243"/>
+      <stop offset="55%" stop-color="#2a1a4a"/>
+      <stop offset="100%" stop-color="#160a2e"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe9a8"/><stop offset="100%" stop-color="#f5c451"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f5c451"/><stop offset="100%" stop-color="#a98bff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- scattered stars -->
+  <g fill="#f5c451" opacity=".55">
+    <path d="M120 90l6 17 18 1-14 11 5 18-15-10-15 10 5-18-14-11 18-1z"/>
+    <path d="M1050 120l4 12 13 1-10 8 3 13-10-7-10 7 3-13-10-8 13-1z" opacity=".7"/>
+    <path d="M1010 470l5 14 15 1-12 9 4 15-12-8-12 8 4-15-12-9 15-1z" opacity=".5"/>
+    <path d="M170 520l4 12 13 1-10 8 3 13-10-7-10 7 3-13-10-8 13-1z" opacity=".6"/>
+  </g>
+
+  <!-- mandala ring -->
+  <g fill="none" stroke="url(#gold)" stroke-width="2" opacity=".8" transform="translate(970,470)">
+    <circle r="70"/><circle r="50"/><circle r="30"/>
+    <path d="M0 -70 L0 70 M-70 0 L70 0 M-49 -49 L49 49 M49 -49 L-49 49"/>
+  </g>
+
+  <!-- sun -->
+  <g transform="translate(150,470)">
+    <circle r="34" fill="url(#sun)"/>
+    <g stroke="url(#sun)" stroke-width="5" stroke-linecap="round">
+      <path d="M0 -60 V-42 M0 60 V42 M-60 0 H-42 M60 0 H42 M-42 -42 L-30 -30 M42 42 L30 30 M42 -42 L30 -30 M-42 42 L-30 30"/>
+    </g>
+  </g>
+
+  <!-- brand mark -->
+  <text x="90" y="150" font-family="Georgia, 'Times New Roman', serif" font-size="40" fill="#f5c451">✦ NameVibe</text>
+
+  <!-- headline -->
+  <text x="90" y="270" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#ffffff">Numerology Name Calculator</text>
+
+  <!-- subline -->
+  <text x="90" y="345" font-family="Arial, Helvetica, sans-serif" font-size="34" fill="#c9bce8">Free · Name number, lucky numbers, Mulank,</text>
+  <text x="90" y="392" font-family="Arial, Helvetica, sans-serif" font-size="34" fill="#c9bce8">Bhagyank, Kua, Lo Shu &amp; personalised remedies</text>
+
+  <!-- language pills -->
+  <g font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">
+    <rect x="90" y="440" width="130" height="56" rx="28" fill="#7c5cff"/>
+    <text x="155" y="477" fill="#ffffff" text-anchor="middle">English</text>
+    <rect x="235" y="440" width="120" height="56" rx="28" fill="#3a2a63"/>
+    <text x="295" y="477" fill="#ffffff" text-anchor="middle">हिंदी</text>
+    <rect x="370" y="440" width="130" height="56" rx="28" fill="#3a2a63"/>
+    <text x="435" y="477" fill="#ffffff" text-anchor="middle">मराठी</text>
+  </g>
+
+  <!-- author credit -->
+  <text x="90" y="570" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#8f82b8">by Amol Gadage</text>
+</svg>

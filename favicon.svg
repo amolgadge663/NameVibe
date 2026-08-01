@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="NameVibe">
+  <defs>
+    <linearGradient id="fv-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a1a4a"/>
+      <stop offset="100%" stop-color="#160a2e"/>
+    </linearGradient>
+    <radialGradient id="fv-core" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#fff6df"/>
+      <stop offset="100%" stop-color="#f5c451"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#fv-bg)"/>
+
+  <g transform="translate(32,32)">
+    <!-- vibe arc -->
+    <path d="M-22 0 A22 22 0 0 1 22 0" fill="none" stroke="#7c5cff" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+    <!-- four cardinal petals (simplified for small sizes) -->
+    <g fill="#f5c451">
+      <path d="M0 -24 C4 -17 4 -13 0 -9 C-4 -13 -4 -17 0 -24 Z"/>
+      <path d="M0 24 C4 17 4 13 0 9 C-4 13 -4 17 0 24 Z"/>
+      <path d="M-24 0 C-17 4 -13 4 -9 0 C-13 -4 -17 -4 -24 0 Z"/>
+      <path d="M24 0 C17 4 13 4 9 0 C13 -4 17 -4 24 0 Z"/>
+    </g>
+    <!-- core + N -->
+    <circle r="14" fill="url(#fv-core)"/>
+    <path d="M-6 6 V-6 L6 6 V-6" fill="none" stroke="#2a1a4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

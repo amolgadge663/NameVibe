@@ -1,0 +1,6 @@
+# Allow all search-engine crawlers to index the whole site.
+User-agent: *
+Allow: /
+
+# Sitemap — replace the host below with your live GitHub Pages / custom-domain URL.
+Sitemap: https://YOUR-USERNAME.github.io/namevibe/sitemap.xml
