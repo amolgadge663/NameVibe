@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap — replace the host below with your live GitHub Pages / custom-domain URL.
-Sitemap: https://YOUR-USERNAME.github.io/namevibe/sitemap.xml
+Sitemap: https://amolgadge663.github.io/NameVibe/sitemap.xml

@@ -63,10 +63,16 @@ const ENEMIES = {
   9: [2, 4, 8],
 };
 
-/** Relationship between two single digits: 'good' | 'neutral' | 'warn'. */
+/** Relationship between two single digits: 'good' | 'neutral' | 'warn'.
+    Friendship/enmity is inherently mutual, but the FRIENDS/ENEMIES tables
+    above are hand-authored per-number lists and don't all list their mirror
+    entry (e.g. 4 lists 1 as a friend, but 1 doesn't list 4 back) — so the
+    lookup checks both directions rather than assuming the tables are symmetric. */
 function relation(a, b) {
-  if (FRIENDS[a] && FRIENDS[a].includes(b)) return 'good';
-  if (ENEMIES[a] && ENEMIES[a].includes(b)) return 'warn';
+  const isFriend = (x, y) => (FRIENDS[x] && FRIENDS[x].includes(y));
+  const isEnemy  = (x, y) => (ENEMIES[x] && ENEMIES[x].includes(y));
+  if (isFriend(a, b) || isFriend(b, a)) return 'good';
+  if (isEnemy(a, b) || isEnemy(b, a)) return 'warn';
   return 'neutral';
 }
 
@@ -117,6 +123,51 @@ function calculate(name) {
   const compound = items.reduce((s, it) => s + it.value, 0);
   const { single, trail } = reduceToSingle(compound);
   return { items, compound, single, trail };
+}
+
+/** Mobile number numerology: sum every digit (ignoring +, spaces, dashes,
+    parentheses), then reduce to a single digit (1–9). Returns null if the
+    input has no digits at all. */
+function calculateMobile(raw) {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return null;
+  const compound = digits.split('').reduce((s, d) => s + Number(d), 0);
+  const { single, trail } = reduceToSingle(compound);
+  return { digits, compound, single, trail };
+}
+
+/** Vehicle registration-plate numerology: Chaldean value for every letter
+    (state/RTO code) PLUS the face value of every digit (the plate's own
+    number), summed and reduced to a single digit. This mirrors how Vedic/
+    Chaldean vehicle-numerology treats a plate as one combined value rather
+    than only its numeric part. Returns null if there's nothing countable. */
+function calculateVehicle(raw) {
+  const items = letterBreakdown(raw);
+  const letterSum = items.reduce((s, it) => s + it.value, 0);
+  const digitSum = (raw || '').replace(/\D/g, '').split('').reduce((s, d) => s + Number(d), 0);
+  const compound = letterSum + digitSum;
+  if (!compound) return null;
+  const { single, trail } = reduceToSingle(compound);
+  return { items, letterSum, digitSum, compound, single, trail };
+}
+
+/** Personal Day / Month / Year numbers (standard numerology "forecast"
+    numbers): reduce (birth day + birth month) with the CURRENT year/month/day
+    to get short-term cyclical numbers layered on top of the lifelong Mulank/
+    Bhagyank. `dobStr` is 'yyyy-mm-dd'; `today` is a Date. */
+function personalCycleNumbers(dobStr, today) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dobStr || '');
+  if (!m) return null;
+  const [, , birthMonth, birthDay] = m;
+  const y = today.getFullYear(), mo = today.getMonth() + 1, d = today.getDate();
+
+  const digitSum = (s) => String(s).split('').reduce((sum, ch) => sum + Number(ch), 0);
+
+  const personalYear = reduceToSingle(digitSum(birthDay) + digitSum(birthMonth) + digitSum(y)).single;
+  const personalMonth = reduceToSingle(personalYear + mo).single;
+  const personalDay = reduceToSingle(personalMonth + d).single;
+
+  return { personalYear, personalMonth, personalDay };
 }
 
 /** Soul Urge / Heart's Desire number = Chaldean sum of the VOWELS only,
@@ -202,11 +253,13 @@ function compoundMeaning(compound) {
 }
 
 /** Pick favourable Indian/Hindu names for a gender whose Chaldean root is
-    favourable (1, 3, 5, 6). `index` rotates the selection for variety. */
+    favourable (1, 3, 5, 6), with a short Vedic/Puranic meaning attached in
+    the current language. `offset` rotates the selection for variety. */
 function favourableIndianNames(gender, count = 8, offset = 0) {
   const pool = INDIAN_NAMES[gender] || [];
   const matches = pool
-    .map(n => ({ name: n, ...calculate(n) }))
+    .map(n => ({ name: n.name, meaning: n['meaning' + currentLang.toUpperCase()] || n.meaningEN,
+                 source: n.source, ...calculate(n.name) }))
     .filter(r => FAVOURABLE_SINGLE.has(r.single));
   // rotate by offset so repeated clicks show fresh names
   const rotated = matches.slice(offset % Math.max(matches.length, 1))
@@ -340,7 +393,7 @@ const I18N = {
     mulankEffectLabel: 'Effect of Mulank',
     bhagyankEffectLabel: 'Effect of Bhagyank',
     indianTitle: 'Lucky Indian Baby Name Ideas',
-    indianIntro: 'Auspicious Hindu names whose Chaldean number falls on a favourable root (1, 3, 5 or 6).',
+    indianIntro: 'Auspicious Hindu names whose Chaldean number falls on a favourable root (1, 3, 5 or 6) — with a short meaning and its source (Rigveda, Upanishads, Puranas, the Ramayana/Mahabharata, or general Sanskrit).',
     genderBoy: 'Boys',
     genderGirl: 'Girls',
     moreNames: '↻ More',
@@ -353,6 +406,14 @@ const I18N = {
     favorMeterTitle: 'How Favourable Is This Name?',
     favorMeterText: (pct) => `Your name scores about ${pct}% on the traditional favourability scale. This is calculated below from your root number, compound number and the harmony between your inner numbers — not a random figure.`,
     favorHowTitle: 'How this % is calculated',
+    profileTitle: 'Your Personality & Life Path',
+    profileIntro: 'A closer look at how your name number tends to shape behaviour and social connection, physical/health tendencies, love life and career path.',
+    profileSocial: '🤝 Behaviour & Social Connect',
+    profileBody: '🧘 Body & Health Tendencies',
+    profileLove: '💞 Love Life',
+    profileCareer: '💼 Career Path',
+    profileMoney: '💰 Money & Wealth Mindset',
+    profileGrowth: '🌱 Life Lessons & Growth',
     favorFactorBase: (f) => `Root number ${f.single} — traditional strength`,
     favorFactorCompoundGood: 'Fortunate compound number',
     favorFactorCompoundWarn: 'Compound number needs caution',
@@ -377,9 +438,11 @@ const I18N = {
     remedy_money: 'Money & Wealth', remedy_career: 'Career & Growth', remedy_job: 'Job & Workplace',
     remedy_health: 'Health', remedy_marriage: 'Marriage', remedy_love: 'Love Life',
     practicalTitle: 'Favourable Choices Checker',
-    practicalIntro: 'Check whether an email ID, bank/company name or any word harmonises with your number.',
+    practicalIntro: 'Check whether an email ID, social handle, business name, bank/company name or any word harmonises with your number.',
     emailPlaceholder: 'Email ID (e.g. amol123)',
     bankPlaceholder: 'Bank / company name',
+    socialPlaceholder: 'Social media username / handle (e.g. @amol.gadage)',
+    businessPlaceholder: 'Business / brand name',
     relationTitle: 'Relationship Compatibility',
     relationIntro: "Enter a partner's or friend's name to see how their number matches yours.",
     partnerPlaceholder: "Partner's name (marriage)",
@@ -407,6 +470,33 @@ const I18N = {
     suggestEmpty: 'No simple spelling variation reached a favourable number. A professional numerologist can explore fuller options.',
     downloadPdf: '⬇ Download PDF Report',
     pdfBuilding: 'Preparing your report…',
+    shareBtn: '📤 Share My Report',
+    shareBuilding: 'Preparing your share card…',
+    shareCaption: (name, single, pct) => `✨ I just discovered my Chaldean numerology number using NameVibe!\n\nName: ${name}\nName Number: ${single}\nFavourability: ${pct}%\n\nFind your own free numerology report — try NameVibe: {url}`,
+    shareCopied: 'Caption copied! Image downloaded — paste the caption when you share it. 🎉',
+    shareTitle: 'Share Your Report',
+    shareIntro: 'Download a shareable image card of your result, plus a ready-to-paste caption for WhatsApp, Instagram or Facebook.',
+    mobileTitle: '📱 Mobile Number Numerology',
+    mobileIntro: 'Check whether your mobile number is numerologically favourable for you. Every digit is added and reduced to a single number (1–9), then compared with your Name Number (enter your name above for a personalised verdict).',
+    mobilePlaceholder: 'Enter mobile number (e.g. +91 98765 43210)',
+    mobileResultLabel: 'Mobile Number reduces to',
+    vehicleTitle: '🚗 Vehicle Number Plate Numerology',
+    vehicleIntro: 'Check whether your vehicle registration number is favourable for you — letters (Chaldean value) plus digits are combined, reduced and compared with your Name Number (enter your name above for a personalised verdict).',
+    vehiclePlaceholder: 'Enter registration number (e.g. MH12AB1234)',
+    vehicleResultLabel: 'Vehicle Number reduces to',
+    numCheckEmpty: 'Enter a number above to see its numerology.',
+    numCheckFav: 'Favourable — a strong, supportive number.',
+    numCheckNeutral: 'Neutral — an average, workable number.',
+    numCheckWarn: 'Testing — a challenging number; use with awareness.',
+    numCheckVsYours: 'compared with your number ({y})',
+    personalizeToggle: 'Personalise using my name/DOB above',
+    numCheckNeedAnchor: 'Enter your name or date of birth above to personalise this check.',
+    cycleTitle: '📆 Your Personal Day, Month & Year Numbers',
+    cycleIntro: 'Short-term cycles layered on your lifelong numbers — what today, this month and this year favour for you.',
+    cycleDayLabel: 'Personal Day',
+    cycleMonthLabel: 'Personal Month',
+    cycleYearLabel: 'Personal Year',
+    cycleNeedDob: 'Enter your date of birth above to see your personal cycle numbers.',
     reductionText: (c, trail) => `Total = <strong>${c}</strong>${trail.length > 1 ? ' → ' + trail.join(' → ') : ''} → Root digit <strong>${trail[trail.length - 1]}</strong>`,
     emptyName: 'Please type a name with at least one letter.',
     stepsIntro: 'Steps',
@@ -467,7 +557,7 @@ const I18N = {
     mulankEffectLabel: 'मूलांक का प्रभाव',
     bhagyankEffectLabel: 'भाग्यांक का प्रभाव',
     indianTitle: 'शुभ भारतीय नाम सुझाव',
-    indianIntro: 'शुभ हिंदू नाम जिनका चाल्डियन अंक शुभ मूल (1, 3, 5 या 6) पर आता है।',
+    indianIntro: 'शुभ हिंदू नाम जिनका चाल्डियन अंक शुभ मूल (1, 3, 5 या 6) पर आता है — संक्षिप्त अर्थ व स्रोत (ऋग्वेद, उपनिषद, पुराण, रामायण/महाभारत या सामान्य संस्कृत) के साथ।',
     genderBoy: 'लड़के',
     genderGirl: 'लड़कियाँ',
     moreNames: '↻ और',
@@ -480,6 +570,14 @@ const I18N = {
     favorMeterTitle: 'यह नाम कितना शुभ है?',
     favorMeterText: (pct) => `आपका नाम पारंपरिक शुभता पैमाने पर लगभग ${pct}% अंक पाता है। यह नीचे आपके मूल अंक, यौगिक अंक व आंतरिक अंकों के तालमेल से गणना किया गया है — कोई मनमाना आँकड़ा नहीं।`,
     favorHowTitle: 'यह % कैसे गणना हुआ',
+    profileTitle: 'आपका व्यक्तित्व व जीवन-पथ',
+    profileIntro: 'आपका नाम अंक व्यवहार व सामाजिक जुड़ाव, शारीरिक/स्वास्थ्य प्रवृत्तियों, प्रेम जीवन व करियर पथ को किस तरह आकार देता है, इस पर एक करीबी नज़र।',
+    profileSocial: '🤝 व्यवहार व सामाजिक जुड़ाव',
+    profileBody: '🧘 शरीर व स्वास्थ्य प्रवृत्तियाँ',
+    profileLove: '💞 प्रेम जीवन',
+    profileCareer: '💼 करियर पथ',
+    profileMoney: '💰 धन व समृद्धि सोच',
+    profileGrowth: '🌱 जीवन-शिक्षा व विकास',
     favorFactorBase: (f) => `मूल अंक ${f.single} — पारंपरिक शक्ति`,
     favorFactorCompoundGood: 'शुभ यौगिक अंक',
     favorFactorCompoundWarn: 'यौगिक अंक में सावधानी आवश्यक',
@@ -504,9 +602,11 @@ const I18N = {
     remedy_money: 'धन व संपत्ति', remedy_career: 'करियर व प्रगति', remedy_job: 'नौकरी व कार्यस्थल',
     remedy_health: 'स्वास्थ्य', remedy_marriage: 'विवाह', remedy_love: 'प्रेम जीवन',
     practicalTitle: 'शुभ विकल्प जाँचक',
-    practicalIntro: 'जाँचें कि कोई ईमेल आईडी, बैंक/कंपनी नाम या शब्द आपके अंक से मेल खाता है या नहीं।',
+    practicalIntro: 'जाँचें कि कोई ईमेल आईडी, सोशल मीडिया हैंडल, बिज़नेस नाम, बैंक/कंपनी नाम या शब्द आपके अंक से मेल खाता है या नहीं।',
     emailPlaceholder: 'ईमेल आईडी (जैसे amol123)',
     bankPlaceholder: 'बैंक / कंपनी नाम',
+    socialPlaceholder: 'सोशल मीडिया यूज़रनेम / हैंडल (जैसे @amol.gadage)',
+    businessPlaceholder: 'बिज़नेस / ब्रांड नाम',
     relationTitle: 'संबंध अनुकूलता',
     relationIntro: 'साथी या मित्र का नाम दर्ज करें और देखें उनका अंक आपसे कैसे मेल खाता है।',
     partnerPlaceholder: 'साथी का नाम (विवाह)',
@@ -534,6 +634,33 @@ const I18N = {
     suggestEmpty: 'किसी सरल वर्तनी परिवर्तन से शुभ अंक नहीं मिला। एक पेशेवर अंकशास्त्री अधिक विकल्प सुझा सकते हैं।',
     downloadPdf: '⬇ PDF रिपोर्ट डाउनलोड करें',
     pdfBuilding: 'आपकी रिपोर्ट तैयार हो रही है…',
+    shareBtn: '📤 मेरी रिपोर्ट शेयर करें',
+    shareBuilding: 'आपका शेयर कार्ड तैयार हो रहा है…',
+    shareCaption: (name, single, pct) => `✨ मैंने NameVibe से अपना केल्डियन न्यूमेरोलॉजी अंक जाना!\n\nनाम: ${name}\nनाम अंक: ${single}\nशुभता: ${pct}%\n\nअपनी मुफ़्त रिपोर्ट पाएँ — NameVibe आज़माएँ: {url}`,
+    shareCopied: 'कैप्शन कॉपी हो गया! इमेज डाउनलोड हो गई है — शेयर करते समय कैप्शन पेस्ट करें। 🎉',
+    shareTitle: 'अपनी रिपोर्ट शेयर करें',
+    shareIntro: 'अपने परिणाम का शेयर करने योग्य इमेज कार्ड डाउनलोड करें, साथ ही WhatsApp, Instagram या Facebook के लिए तैयार कैप्शन।',
+    mobileTitle: '📱 मोबाइल नंबर न्यूमेरोलॉजी',
+    mobileIntro: 'जाँचें कि आपका मोबाइल नंबर आपके लिए अंकशास्त्रीय रूप से शुभ है या नहीं। हर अंक को जोड़कर एक अंक (1–9) में घटाया जाता है, फिर आपके नाम अंक से तुलना की जाती है (व्यक्तिगत परिणाम हेतु ऊपर अपना नाम दर्ज करें)।',
+    mobilePlaceholder: 'मोबाइल नंबर दर्ज करें (जैसे +91 98765 43210)',
+    mobileResultLabel: 'मोबाइल नंबर घटकर बनता है',
+    vehicleTitle: '🚗 वाहन नंबर प्लेट न्यूमेरोलॉजी',
+    vehicleIntro: 'जाँचें कि आपकी गाड़ी की रजिस्ट्रेशन संख्या आपके लिए शुभ है या नहीं — अक्षर (केल्डियन मूल्य) और अंक मिलाकर घटाए जाते हैं, फिर आपके नाम अंक से तुलना की जाती है (व्यक्तिगत परिणाम हेतु ऊपर अपना नाम दर्ज करें)।',
+    vehiclePlaceholder: 'रजिस्ट्रेशन नंबर दर्ज करें (जैसे MH12AB1234)',
+    vehicleResultLabel: 'वाहन नंबर घटकर बनता है',
+    numCheckEmpty: 'न्यूमेरोलॉजी देखने के लिए ऊपर एक नंबर दर्ज करें।',
+    numCheckFav: 'शुभ — एक मज़बूत, सहायक अंक।',
+    numCheckNeutral: 'तटस्थ — एक सामान्य, उपयोगी अंक।',
+    numCheckWarn: 'परीक्षा — एक चुनौतीपूर्ण अंक; सावधानी से उपयोग करें।',
+    numCheckVsYours: 'आपके अंक ({y}) से तुलना',
+    personalizeToggle: 'ऊपर मेरे नाम/जन्मतिथि से व्यक्तिगत करें',
+    numCheckNeedAnchor: 'इसे व्यक्तिगत बनाने के लिए ऊपर अपना नाम या जन्मतिथि दर्ज करें।',
+    cycleTitle: '📆 आपके व्यक्तिगत दिन, माह व वर्ष अंक',
+    cycleIntro: 'आपके जीवनभर के अंकों पर आधारित अल्पकालिक चक्र — आज, इस माह व इस वर्ष आपके लिए क्या अनुकूल है।',
+    cycleDayLabel: 'व्यक्तिगत दिन',
+    cycleMonthLabel: 'व्यक्तिगत माह',
+    cycleYearLabel: 'व्यक्तिगत वर्ष',
+    cycleNeedDob: 'अपने व्यक्तिगत चक्र अंक देखने के लिए ऊपर अपनी जन्मतिथि दर्ज करें।',
     reductionText: (c, trail) => `कुल = <strong>${c}</strong>${trail.length > 1 ? ' → ' + trail.join(' → ') : ''} → मूल अंक <strong>${trail[trail.length - 1]}</strong>`,
     emptyName: 'कृपया कम से कम एक अक्षर वाला नाम लिखें।',
     stepsIntro: 'चरण',
@@ -594,7 +721,7 @@ const I18N = {
     mulankEffectLabel: 'मूलांकाचा प्रभाव',
     bhagyankEffectLabel: 'भाग्यांकाचा प्रभाव',
     indianTitle: 'शुभ भारतीय नाव सूचना',
-    indianIntro: 'शुभ हिंदू नावे ज्यांचा चाल्डियन अंक शुभ मूळावर (1, 3, 5 किंवा 6) येतो.',
+    indianIntro: 'शुभ हिंदू नावे ज्यांचा चाल्डियन अंक शुभ मूळावर (1, 3, 5 किंवा 6) येतो — संक्षिप्त अर्थ व स्रोत (ऋग्वेद, उपनिषद, पुराण, रामायण/महाभारत किंवा सामान्य संस्कृत) यासह.',
     genderBoy: 'मुलगे',
     genderGirl: 'मुली',
     moreNames: '↻ आणखी',
@@ -607,6 +734,14 @@ const I18N = {
     favorMeterTitle: 'हे नाव किती शुभ आहे?',
     favorMeterText: (pct) => `आपले नाव पारंपरिक शुभता मापनावर सुमारे ${pct}% गुण मिळवते. हे खाली आपल्या मूळ अंक, यौगिक अंक व आंतरिक अंकांच्या सुसंगततेवरून काढले आहे — कोणताही मनमानी आकडा नाही.`,
     favorHowTitle: 'हे % कसे काढले',
+    profileTitle: 'तुमचे व्यक्तिमत्त्व व जीवन-मार्ग',
+    profileIntro: 'तुमचा नाव अंक वागणूक व सामाजिक जोडणी, शारीरिक/आरोग्य प्रवृत्ती, प्रेम जीवन व करिअर मार्गाला कसा आकार देतो, यावर एक जवळून दृष्टिक्षेप.',
+    profileSocial: '🤝 वागणूक व सामाजिक जोडणी',
+    profileBody: '🧘 शरीर व आरोग्य प्रवृत्ती',
+    profileLove: '💞 प्रेम जीवन',
+    profileCareer: '💼 करिअर मार्ग',
+    profileMoney: '💰 पैसा व समृद्धी दृष्टिकोन',
+    profileGrowth: '🌱 जीवन-धडे व विकास',
     favorFactorBase: (f) => `मूळ अंक ${f.single} — पारंपरिक शक्ती`,
     favorFactorCompoundGood: 'शुभ यौगिक अंक',
     favorFactorCompoundWarn: 'यौगिक अंकात सावधगिरी आवश्यक',
@@ -631,9 +766,11 @@ const I18N = {
     remedy_money: 'पैसा व संपत्ती', remedy_career: 'करिअर व प्रगती', remedy_job: 'नोकरी व कार्यस्थळ',
     remedy_health: 'आरोग्य', remedy_marriage: 'विवाह', remedy_love: 'प्रेम जीवन',
     practicalTitle: 'शुभ निवड तपासक',
-    practicalIntro: 'ईमेल आयडी, बँक/कंपनी नाव किंवा शब्द आपल्या अंकाशी जुळतो का ते तपासा.',
+    practicalIntro: 'ईमेल आयडी, सोशल मीडिया हँडल, बिझनेस नाव, बँक/कंपनी नाव किंवा शब्द आपल्या अंकाशी जुळतो का ते तपासा.',
     emailPlaceholder: 'ईमेल आयडी (उदा. amol123)',
     bankPlaceholder: 'बँक / कंपनी नाव',
+    socialPlaceholder: 'सोशल मीडिया युजरनेम / हँडल (उदा. @amol.gadage)',
+    businessPlaceholder: 'बिझनेस / ब्रँड नाव',
     relationTitle: 'नातेसंबंध सुसंगतता',
     relationIntro: 'जोडीदार किंवा मित्राचे नाव टाका आणि त्यांचा अंक आपल्याशी कसा जुळतो पहा.',
     partnerPlaceholder: 'जोडीदाराचे नाव (विवाह)',
@@ -661,6 +798,33 @@ const I18N = {
     suggestEmpty: 'कोणत्याही सोप्या स्पेलिंग बदलाने शुभ अंक मिळाला नाही. व्यावसायिक अंकशास्त्रज्ञ अधिक पर्याय सुचवू शकतात.',
     downloadPdf: '⬇ PDF अहवाल डाउनलोड करा',
     pdfBuilding: 'आपला अहवाल तयार होत आहे…',
+    shareBtn: '📤 माझा अहवाल शेअर करा',
+    shareBuilding: 'तुमचे शेअर कार्ड तयार होत आहे…',
+    shareCaption: (name, single, pct) => `✨ मी NameVibe वरून माझा कॅल्डियन न्यूमरॉलॉजी अंक शोधला!\n\nनाव: ${name}\nनाव अंक: ${single}\nशुभता: ${pct}%\n\nतुमचा मोफत अहवाल मिळवा — NameVibe वापरून पहा: {url}`,
+    shareCopied: 'कॅप्शन कॉपी झाले! इमेज डाउनलोड झाली आहे — शेअर करताना कॅप्शन पेस्ट करा. 🎉',
+    shareTitle: 'तुमचा अहवाल शेअर करा',
+    shareIntro: 'तुमच्या परिणामाचे शेअर करण्यायोग्य इमेज कार्ड डाउनलोड करा, तसेच WhatsApp, Instagram किंवा Facebook साठी तयार कॅप्शन.',
+    mobileTitle: '📱 मोबाईल नंबर न्यूमरॉलॉजी',
+    mobileIntro: 'तुमचा मोबाईल नंबर तुमच्यासाठी अंकशास्त्रीय दृष्टीने शुभ आहे का ते तपासा. प्रत्येक अंक जोडून एका अंकात (1–9) घटवला जातो, नंतर तुमच्या नाव अंकाशी तुलना केली जाते (वैयक्तिक निकालासाठी वर तुमचे नाव टाका).',
+    mobilePlaceholder: 'मोबाईल नंबर टाका (उदा. +91 98765 43210)',
+    mobileResultLabel: 'मोबाईल नंबर घटून बनतो',
+    vehicleTitle: '🚗 वाहन नंबर प्लेट न्यूमरॉलॉजी',
+    vehicleIntro: 'तुमच्या वाहनाचा नोंदणी क्रमांक तुमच्यासाठी शुभ आहे का ते तपासा — अक्षरे (कॅल्डियन मूल्य) व अंक एकत्र करून घटवले जातात, नंतर तुमच्या नाव अंकाशी तुलना केली जाते (वैयक्तिक निकालासाठी वर तुमचे नाव टाका).',
+    vehiclePlaceholder: 'नोंदणी क्रमांक टाका (उदा. MH12AB1234)',
+    vehicleResultLabel: 'वाहन नंबर घटून बनतो',
+    numCheckEmpty: 'न्यूमरॉलॉजी पाहण्यासाठी वर एक नंबर टाका.',
+    numCheckFav: 'शुभ — एक मजबूत, साहाय्यक अंक.',
+    numCheckNeutral: 'तटस्थ — एक सामान्य, उपयुक्त अंक.',
+    numCheckWarn: 'कसोटी — एक आव्हानात्मक अंक; जागरूकतेने वापरा.',
+    numCheckVsYours: 'तुमच्या अंकाशी ({y}) तुलना',
+    personalizeToggle: 'वर माझे नाव/जन्मतारीख वापरून वैयक्तिकृत करा',
+    numCheckNeedAnchor: 'हे वैयक्तिकृत करण्यासाठी वर तुमचे नाव किंवा जन्मतारीख टाका.',
+    cycleTitle: '📆 तुमचे वैयक्तिक दिवस, महिना व वर्ष अंक',
+    cycleIntro: 'तुमच्या आजीवन अंकांवर आधारित अल्पकालीन चक्रे — आज, हा महिना व हे वर्ष तुमच्यासाठी काय अनुकूल आहे.',
+    cycleDayLabel: 'वैयक्तिक दिवस',
+    cycleMonthLabel: 'वैयक्तिक महिना',
+    cycleYearLabel: 'वैयक्तिक वर्ष',
+    cycleNeedDob: 'तुमचे वैयक्तिक चक्र अंक पाहण्यासाठी वर तुमची जन्मतारीख टाका.',
     reductionText: (c, trail) => `एकूण = <strong>${c}</strong>${trail.length > 1 ? ' → ' + trail.join(' → ') : ''} → मूळ अंक <strong>${trail[trail.length - 1]}</strong>`,
     emptyName: 'कृपया किमान एक अक्षर असलेले नाव लिहा.',
     stepsIntro: 'पायऱ्या',
@@ -868,20 +1032,124 @@ const COMPOUND_MEANINGS_MR = {
 /* =========================================================
    4c. Favourable Indian / Hindu name pool
    Used to suggest culturally-appropriate names whose Chaldean root
-   is favourable (1, 3, 5, 6) — grouped by gender.
+   is favourable (1, 3, 5, 6) — grouped by gender. Each entry carries a
+   short meaning (EN/HI/MR) and its textual source: Rigveda, Upanishads,
+   Puranas, the Ramayana/Mahabharata, or general Sanskrit. A few widely
+   used names are Persian/Arabic/modern in origin rather than Vedic —
+   those are marked "Popular" instead of a false scriptural source.
    ========================================================= */
 const INDIAN_NAMES = {
   boy: [
-    'Aarav','Advait','Arjun','Aryan','Dhruv','Ishaan','Kabir','Karan','Krishna',
-    'Laksh','Manav','Neel','Om','Parth','Pranav','Rohan','Rudra','Samarth',
-    'Shaurya','Siddharth','Tejas','Ved','Vihaan','Viraj','Yash','Aditya',
-    'Ansh','Devansh','Reyansh','Shivansh','Atharv','Kiaan','Nirvaan','Vivaan',
+    { name:'Aarav', source:'Sanskrit', meaningEN:'Peaceful, wise', meaningHI:'शांत, ज्ञानी', meaningMR:'शांत, ज्ञानी' },
+    { name:'Advait', source:'Upanishads', meaningEN:'Non-dual, one without a second — the core Vedantic concept', meaningHI:'अद्वैत — वेदांत का मूल सिद्धांत, एक और अद्वितीय', meaningMR:'अद्वैत — वेदांताचे मूळ तत्त्व, एक व अद्वितीय' },
+    { name:'Arjun', source:'Mahabharata', meaningEN:'Bright, shining — the heroic third Pandava, Krishna\'s disciple in the Gita', meaningHI:'उज्ज्वल, तेजस्वी — तीसरे पांडव, गीता में कृष्ण के शिष्य', meaningMR:'उज्ज्वल, तेजस्वी — तिसरे पांडव, गीतेत कृष्णाचे शिष्य' },
+    { name:'Aryan', source:'Rigveda', meaningEN:'Noble one — the Rigveda\'s own word for a person of noble conduct', meaningHI:'श्रेष्ठ, आर्य — ऋग्वेद में उत्तम आचरण वाले के लिए प्रयुक्त', meaningMR:'श्रेष्ठ, आर्य — ऋग्वेदात उत्तम आचरण असलेल्यासाठी वापरलेला शब्द' },
+    { name:'Dhruv', source:'Puranas', meaningEN:'Fixed, immovable — the boy-devotee who became the Pole Star (Vishnu Purana)', meaningHI:'अचल, स्थिर — विष्णु पुराण में भक्त बालक जो ध्रुव तारा बना', meaningMR:'अचल, स्थिर — विष्णू पुराणातील बालभक्त जो ध्रुव तारा बनला' },
+    { name:'Ishaan', source:'Puranas', meaningEN:'Direction of the northeast; also an epithet of Shiva', meaningHI:'ईशान दिशा (उत्तर-पूर्व); शिव का एक नाम', meaningMR:'ईशान्य दिशा; शिवाचे एक नाव' },
+    { name:'Kabir', source:'Popular', meaningEN:'Great, mighty (Perso-Arabic origin) — also the name of the 15th-century mystic-poet', meaningHI:'महान, विशाल (फ़ारसी-अरबी मूल) — संत-कवि कबीर का नाम', meaningMR:'महान, थोर (फार्सी-अरबी मूळ) — संत-कवी कबीराचे नाव' },
+    { name:'Karan', source:'Sanskrit', meaningEN:'Cause, reason; instrument', meaningHI:'कारण, साधन', meaningMR:'कारण, साधन' },
+    { name:'Krishna', source:'Bhagavad Gita', meaningEN:'Dark, all-attractive — the eighth avatar of Vishnu, speaker of the Gita', meaningHI:'श्याम, सर्वाकर्षक — विष्णु के आठवें अवतार, गीता के वक्ता', meaningMR:'श्याम, सर्वाकर्षक — विष्णूचा आठवा अवतार, गीतेचा उपदेशक' },
+    { name:'Laksh', source:'Sanskrit', meaningEN:'Aim, goal, target', meaningHI:'लक्ष्य, उद्देश्य', meaningMR:'लक्ष्य, उद्दिष्ट' },
+    { name:'Manav', source:'Puranas', meaningEN:'Human being — from Manu, progenitor of humankind', meaningHI:'मनुष्य — मनु से, मानवजाति के आदि पुरुष', meaningMR:'मानव — मनूपासून, मानवजातीचा आदिपुरुष' },
+    { name:'Neel', source:'Sanskrit', meaningEN:'Blue — the hue traditionally associated with Krishna and Vishnu', meaningHI:'नीला — कृष्ण व विष्णु से जुड़ा रंग', meaningMR:'निळा — कृष्ण व विष्णूशी संबंधित रंग' },
+    { name:'Om', source:'Upanishads', meaningEN:'The primordial sacred sound representing Brahman (Mandukya Upanishad)', meaningHI:'आदि पवित्र नाद, ब्रह्म का प्रतीक (मांडूक्य उपनिषद)', meaningMR:'आदि पवित्र नाद, ब्रह्माचे प्रतीक (मांडूक्य उपनिषद)' },
+    { name:'Parth', source:'Bhagavad Gita', meaningEN:'Son of Pritha (Kunti) — how Krishna addresses Arjuna in the Gita', meaningHI:'पृथा (कुंती) के पुत्र — गीता में कृष्ण द्वारा अर्जुन को संबोधन', meaningMR:'पृथेचा (कुंतीचा) पुत्र — गीतेत कृष्णाने अर्जुनाला केलेली संबोधना' },
+    { name:'Pranav', source:'Upanishads', meaningEN:'Another name for the sacred syllable Om', meaningHI:'ओम् का दूसरा नाम', meaningMR:'ओम् चे दुसरे नाव' },
+    { name:'Rohan', source:'Sanskrit', meaningEN:'Ascending, rising', meaningHI:'आरोहण करने वाला, उभरता हुआ', meaningMR:'चढणारा, उगवणारा' },
+    { name:'Rudra', source:'Rigveda', meaningEN:'The fierce storm-deity of the Rigveda, later identified with Shiva', meaningHI:'ऋग्वेद के प्रचंड तूफानी देवता, बाद में शिव से समरूप', meaningMR:'ऋग्वेदातील प्रचंड वादळ-देवता, नंतर शिवाशी समरूप' },
+    { name:'Samarth', source:'Sanskrit', meaningEN:'Capable, powerful, competent', meaningHI:'सक्षम, शक्तिशाली', meaningMR:'सक्षम, शक्तिशाली' },
+    { name:'Shaurya', source:'Sanskrit', meaningEN:'Valour, bravery, heroism', meaningHI:'शौर्य, वीरता', meaningMR:'शौर्य, वीरता' },
+    { name:'Siddharth', source:'Popular', meaningEN:'One who has accomplished his goal — birth name of Gautam Buddha', meaningHI:'जिसने अपना लक्ष्य पूर्ण किया — गौतम बुद्ध का जन्म-नाम', meaningMR:'ज्याने आपले लक्ष्य साध्य केले — गौतम बुद्धांचे जन्मनाव' },
+    { name:'Tejas', source:'Sanskrit', meaningEN:'Brilliance, lustre, radiance', meaningHI:'तेज, चमक, कांति', meaningMR:'तेज, चकाकी, कांती' },
+    { name:'Ved', source:'Vedic', meaningEN:'Sacred knowledge — refers to the Vedas themselves', meaningHI:'पवित्र ज्ञान — वेदों का प्रतीक', meaningMR:'पवित्र ज्ञान — वेदांचे प्रतीक' },
+    { name:'Vihaan', source:'Sanskrit', meaningEN:'Dawn, morning', meaningHI:'प्रभात, सुबह', meaningMR:'पहाट, सकाळ' },
+    { name:'Viraj', source:'Rigveda', meaningEN:'Resplendent — the cosmic being described in the Purusha Sukta', meaningHI:'तेजस्वी — पुरुष सूक्त में वर्णित विराट पुरुष', meaningMR:'तेजस्वी — पुरुष सूक्तात वर्णिलेला विराट पुरुष' },
+    { name:'Yash', source:'Sanskrit', meaningEN:'Fame, glory, success', meaningHI:'यश, कीर्ति, सफलता', meaningMR:'यश, कीर्ती, सफलता' },
+    { name:'Aditya', source:'Rigveda', meaningEN:'Son of Aditi — an epithet of Surya, the Vedic sun-god', meaningHI:'अदिति के पुत्र — सूर्य का नाम', meaningMR:'अदितीचा पुत्र — सूर्याचे नाव' },
+    { name:'Ansh', source:'Sanskrit', meaningEN:'Part, portion — a part of the divine', meaningHI:'अंश, भाग — ईश्वर का अंश', meaningMR:'अंश, भाग — ईश्वराचा अंश' },
+    { name:'Devansh', source:'Sanskrit', meaningEN:'A part of the divine', meaningHI:'देवता का अंश', meaningMR:'देवाचा अंश' },
+    { name:'Reyansh', source:'Popular', meaningEN:'A ray of light / part of a compassionate one (modern coinage)', meaningHI:'प्रकाश की किरण / दयालु का अंश (आधुनिक नाम)', meaningMR:'प्रकाशाचा किरण / दयाळूचा अंश (आधुनिक नाव)' },
+    { name:'Shivansh', source:'Sanskrit', meaningEN:'A part of Lord Shiva', meaningHI:'शिव का अंश', meaningMR:'शिवाचा अंश' },
+    { name:'Atharv', source:'Vedic', meaningEN:'Relates to the Atharva Veda, the fourth of the four Vedas', meaningHI:'अथर्ववेद से संबंधित — चार वेदों में से चौथा', meaningMR:'अथर्ववेदाशी संबंधित — चार वेदांपैकी चौथा' },
+    { name:'Kiaan', source:'Popular', meaningEN:'Grace, king (modern name, Persian-influenced)', meaningHI:'अनुग्रह, राजा (आधुनिक नाम, फ़ारसी प्रभाव)', meaningMR:'अनुग्रह, राजा (आधुनिक नाव, फार्सी प्रभाव)' },
+    { name:'Nirvaan', source:'Upanishads', meaningEN:'Liberation from the cycle of rebirth', meaningHI:'मोक्ष, जन्म-मृत्यु के चक्र से मुक्ति', meaningMR:'मोक्ष, जन्म-मृत्यूच्या फेऱ्यातून मुक्ती' },
+    { name:'Vivaan', source:'Sanskrit', meaningEN:'Full of life, giver of life', meaningHI:'जीवन से भरपूर, जीवनदाता', meaningMR:'जीवनाने भरलेला, जीवनदाता' },
+    { name:'Agastya', source:'Rigveda', meaningEN:'A revered Vedic sage, credited with several Rigvedic hymns', meaningHI:'ऋग्वेद के आदरणीय ऋषि, कई ऋचाओं के रचयिता', meaningMR:'ऋग्वेदातील आदरणीय ऋषी, अनेक ऋचांचे रचनाकार' },
+    { name:'Dhananjay', source:'Mahabharata', meaningEN:'Conqueror of wealth — another name of Arjuna', meaningHI:'धन के विजेता — अर्जुन का एक नाम', meaningMR:'धनाचा विजेता — अर्जुनाचे एक नाव' },
+    { name:'Gopal', source:'Puranas', meaningEN:'Protector of cows — a beloved name of Krishna', meaningHI:'गायों के रक्षक — कृष्ण का प्रिय नाम', meaningMR:'गायींचा रक्षक — कृष्णाचे प्रिय नाव' },
+    { name:'Harsh', source:'Sanskrit', meaningEN:'Joy, happiness', meaningHI:'हर्ष, आनंद', meaningMR:'हर्ष, आनंद' },
+    { name:'Indra', source:'Rigveda', meaningEN:'King of the Devas, god of thunder and rain — the most invoked deity in the Rigveda', meaningHI:'देवराज, वर्षा व मेघ के देवता — ऋग्वेद में सर्वाधिक स्तुत देवता', meaningMR:'देवराज, पर्जन्य व मेघांचा देव — ऋग्वेदातील सर्वाधिक स्तुत देवता' },
+    { name:'Kashyap', source:'Rigveda', meaningEN:'A revered sage, one of the Saptarishi (seven great sages)', meaningHI:'सप्तर्षियों में से एक आदरणीय ऋषि', meaningMR:'सप्तर्षींपैकी एक आदरणीय ऋषी' },
+    { name:'Lakshman', source:'Ramayana', meaningEN:'Auspicious sign — Rama\'s devoted younger brother', meaningHI:'शुभ चिह्न — राम के अनुगत छोटे भाई', meaningMR:'शुभ चिन्ह — रामाचे अनुगत लहान बंधू' },
+    { name:'Madhav', source:'Bhagavad Gita', meaningEN:'Sweet as honey — an epithet of Krishna/Vishnu', meaningHI:'मधुर, मधु के समान — कृष्ण/विष्णु का नाम', meaningMR:'मधुर, मधासारखा — कृष्ण/विष्णूचे नाव' },
+    { name:'Nakul', source:'Mahabharata', meaningEN:'The fourth Pandava, celebrated for beauty and skill with horses', meaningHI:'चौथे पांडव, सुंदरता व अश्व-विद्या में निपुण', meaningMR:'चौथे पांडव, सौंदर्य व अश्वविद्येत निपुण' },
+    { name:'Narayan', source:'Upanishads', meaningEN:'One who pervades the waters — a principal name of Vishnu', meaningHI:'जल में निवास करने वाला — विष्णु का प्रमुख नाम', meaningMR:'जलात निवास करणारा — विष्णूचे प्रमुख नाव' },
+    { name:'Rishabh', source:'Sanskrit', meaningEN:'The best, supreme; also a bull — symbol of strength', meaningHI:'सर्वश्रेष्ठ; वृषभ — शक्ति का प्रतीक', meaningMR:'सर्वश्रेष्ठ; वृषभ — शक्तीचे प्रतीक' },
+    { name:'Vedant', source:'Upanishads', meaningEN:'The essence/culmination of the Vedas — the Vedanta philosophy', meaningHI:'वेदों का सार — वेदांत दर्शन', meaningMR:'वेदांचे सार — वेदांत दर्शन' },
+    { name:'Manu', source:'Puranas', meaningEN:'The progenitor of humankind, giver of the Manusmriti', meaningHI:'मानवजाति के आदि पुरुष, मनुस्मृति के रचयिता', meaningMR:'मानवजातीचा आदिपुरुष, मनुस्मृतीचा रचनाकार' },
+    { name:'Girish', source:'Puranas', meaningEN:'Lord of the mountain — an epithet of Shiva', meaningHI:'पर्वतों के स्वामी — शिव का नाम', meaningMR:'पर्वतांचा स्वामी — शिवाचे नाव' },
+    { name:'Satyajit', source:'Sanskrit', meaningEN:'Conqueror of truth', meaningHI:'सत्य के विजेता', meaningMR:'सत्याचा विजेता' },
   ],
   girl: [
-    'Aadya','Aanya','Aarohi','Ananya','Anvi','Avni','Diya','Gauri','Ira',
-    'Ishita','Kavya','Kiara','Lavanya','Meera','Myra','Navya','Nitya','Pari',
-    'Prisha','Riya','Saanvi','Sara','Shreya','Siya','Tara','Trisha','Vanya',
-    'Aaradhya','Anika','Ishani','Mahi','Pihu','Saira','Zara','Aditi','Divya',
+    { name:'Aadya', source:'Puranas', meaningEN:'The primal power — an epithet of Goddess Durga/Adi Shakti', meaningHI:'आदि शक्ति — देवी दुर्गा का नाम', meaningMR:'आदि शक्ती — देवी दुर्गेचे नाव' },
+    { name:'Aanya', source:'Sanskrit', meaningEN:'Full of grace, inexhaustible', meaningHI:'कृपापूर्ण, अक्षय', meaningMR:'कृपापूर्ण, अक्षय' },
+    { name:'Aarohi', source:'Sanskrit', meaningEN:'One who ascends; an ascending musical scale', meaningHI:'आरोहण करने वाली; संगीत का आरोही स्वर', meaningMR:'आरोहण करणारी; संगीताचा आरोही स्वर' },
+    { name:'Ananya', source:'Sanskrit', meaningEN:'Unique, matchless, without another', meaningHI:'अद्वितीय, अनुपम', meaningMR:'अद्वितीय, अनुपम' },
+    { name:'Anvi', source:'Sanskrit', meaningEN:'A seeker, one who searches for knowledge', meaningHI:'खोजी, ज्ञान की जिज्ञासु', meaningMR:'शोधक, ज्ञानाची जिज्ञासू' },
+    { name:'Avni', source:'Sanskrit', meaningEN:'The earth', meaningHI:'पृथ्वी, धरा', meaningMR:'पृथ्वी, धरा' },
+    { name:'Diya', source:'Sanskrit', meaningEN:'Lamp, light', meaningHI:'दीप, प्रकाश', meaningMR:'दिवा, प्रकाश' },
+    { name:'Gauri', source:'Puranas', meaningEN:'The fair one — an epithet of Goddess Parvati', meaningHI:'गौरवर्णा — देवी पार्वती का नाम', meaningMR:'गौरवर्णा — देवी पार्वतीचे नाव' },
+    { name:'Ira', source:'Rigveda', meaningEN:'Goddess of speech and libation invoked in Vedic sacrifice', meaningHI:'वाणी व हविष्य की देवी — वैदिक यज्ञ में आवाहित', meaningMR:'वाणी व हविष्याची देवी — वैदिक यज्ञात आवाहित' },
+    { name:'Ishita', source:'Sanskrit', meaningEN:'One who is desired; supreme', meaningHI:'वांछित, सर्वोच्च', meaningMR:'वांछित, सर्वोच्च' },
+    { name:'Kavya', source:'Sanskrit', meaningEN:'Poetry', meaningHI:'काव्य, कविता', meaningMR:'काव्य, कविता' },
+    { name:'Kiara', source:'Popular', meaningEN:'Beam of light (modern, Italian-influenced)', meaningHI:'प्रकाश की किरण (आधुनिक नाम)', meaningMR:'प्रकाशाचा किरण (आधुनिक नाव)' },
+    { name:'Lavanya', source:'Sanskrit', meaningEN:'Grace, beauty, charm', meaningHI:'सौंदर्य, आकर्षण', meaningMR:'सौंदर्य, आकर्षण' },
+    { name:'Meera', source:'Popular', meaningEN:'Ocean; also the name of the saint-poetess devoted to Krishna', meaningHI:'सागर; कृष्ण-भक्त संत-कवयित्री मीराबाई का नाम', meaningMR:'सागर; कृष्णभक्त संत-कवयित्री मीराबाईचे नाव' },
+    { name:'Myra', source:'Popular', meaningEN:'Beloved, admirable (Latin/Greek-influenced, modern usage)', meaningHI:'प्रिय, प्रशंसनीय (आधुनिक नाम)', meaningMR:'प्रिय, प्रशंसनीय (आधुनिक नाव)' },
+    { name:'Navya', source:'Sanskrit', meaningEN:'New, young', meaningHI:'नवीन, युवा', meaningMR:'नवीन, तरुण' },
+    { name:'Nitya', source:'Upanishads', meaningEN:'Eternal, everlasting — a key Vedantic term', meaningHI:'नित्य, चिरस्थायी — वेदांत का प्रमुख शब्द', meaningMR:'नित्य, चिरस्थायी — वेदांताचा प्रमुख शब्द' },
+    { name:'Pari', source:'Popular', meaningEN:'Fairy, angel (Persian origin)', meaningHI:'परी, देवदूत (फ़ारसी मूल)', meaningMR:'परी, देवदूत (फार्सी मूळ)' },
+    { name:'Prisha', source:'Sanskrit', meaningEN:'Beloved, God\'s gift', meaningHI:'प्रिय, ईश्वर का उपहार', meaningMR:'प्रिय, ईश्वराची देणगी' },
+    { name:'Riya', source:'Sanskrit', meaningEN:'Singer; graceful', meaningHI:'गायिका; सुंदर', meaningMR:'गायिका; सुंदर' },
+    { name:'Saanvi', source:'Puranas', meaningEN:'An epithet of Goddess Lakshmi', meaningHI:'देवी लक्ष्मी का नाम', meaningMR:'देवी लक्ष्मीचे नाव' },
+    { name:'Sara', source:'Popular', meaningEN:'Princess (Hebrew origin)', meaningHI:'राजकुमारी (हिब्रू मूल)', meaningMR:'राजकुमारी (हिब्रू मूळ)' },
+    { name:'Shreya', source:'Sanskrit', meaningEN:'Auspicious, fortunate, the better one', meaningHI:'शुभ, कल्याणकारी', meaningMR:'शुभ, कल्याणकारी' },
+    { name:'Siya', source:'Ramayana', meaningEN:'Another name for Sita, Rama\'s consort', meaningHI:'सीता का दूसरा नाम', meaningMR:'सीतेचे दुसरे नाव' },
+    { name:'Tara', source:'Puranas', meaningEN:'Star — also a revered goddess figure', meaningHI:'तारा — एक पूजनीय देवी', meaningMR:'तारा — एक पूजनीय देवी' },
+    { name:'Trisha', source:'Sanskrit', meaningEN:'Thirst, deep desire (Trishna)', meaningHI:'तृष्णा, गहरी इच्छा', meaningMR:'तृष्णा, तीव्र इच्छा' },
+    { name:'Vanya', source:'Sanskrit', meaningEN:'Forest-born; a gracious gift', meaningHI:'वन में जन्मी; अनुग्रह का उपहार', meaningMR:'वनात जन्मलेली; अनुग्रहाची देणगी' },
+    { name:'Aaradhya', source:'Sanskrit', meaningEN:'Worthy of worship, one who is worshipped', meaningHI:'आराधना के योग्य, पूजनीय', meaningMR:'आराधनेस योग्य, पूजनीय' },
+    { name:'Anika', source:'Sanskrit', meaningEN:'Grace, favour, brilliance', meaningHI:'अनुग्रह, तेज', meaningMR:'अनुग्रह, तेज' },
+    { name:'Ishani', source:'Puranas', meaningEN:'Goddess, ruler — an epithet of Goddess Parvati', meaningHI:'ईशानी — देवी पार्वती का नाम', meaningMR:'ईशानी — देवी पार्वतीचे नाव' },
+    { name:'Mahi', source:'Rigveda', meaningEN:'The earth — invoked as a goddess in the Rigveda', meaningHI:'पृथ्वी — ऋग्वेद में देवी रूप में आवाहित', meaningMR:'पृथ्वी — ऋग्वेदात देवीरूपात आवाहित' },
+    { name:'Pihu', source:'Popular', meaningEN:'The chirp of a bird; a term of endearment', meaningHI:'पक्षी की चहचहाहट; प्रेमसूचक नाम', meaningMR:'पक्ष्याचा किलबिलाट; प्रेमळ नाव' },
+    { name:'Saira', source:'Popular', meaningEN:'One who travels; noble (Persian/Arabic origin)', meaningHI:'यात्रा करने वाली; श्रेष्ठ (फ़ारसी-अरबी मूल)', meaningMR:'प्रवास करणारी; श्रेष्ठ (फार्सी-अरबी मूळ)' },
+    { name:'Zara', source:'Popular', meaningEN:'Princess, blooming flower (Arabic origin)', meaningHI:'राजकुमारी, खिलता फूल (अरबी मूल)', meaningMR:'राजकुमारी, फुलणारे फूल (अरबी मूळ)' },
+    { name:'Aditi', source:'Rigveda', meaningEN:'Boundless, without bonds — mother of the Adityas in the Rigveda', meaningHI:'असीम, अबाध्य — ऋग्वेद में आदित्यों की माता', meaningMR:'असीम, अबाध्य — ऋग्वेदात आदित्यांची माता' },
+    { name:'Divya', source:'Sanskrit', meaningEN:'Divine, heavenly', meaningHI:'दिव्य, स्वर्गीय', meaningMR:'दिव्य, स्वर्गीय' },
+    { name:'Bhavani', source:'Puranas', meaningEN:'Giver of existence — an epithet of Goddess Parvati', meaningHI:'अस्तित्व की दात्री — देवी पार्वती का नाम', meaningMR:'अस्तित्वाची दाती — देवी पार्वतीचे नाव' },
+    { name:'Draupadi', source:'Mahabharata', meaningEN:'Daughter of King Drupada, born from sacred fire, wife of the Pandavas', meaningHI:'राजा द्रुपद की पुत्री, यज्ञ की अग्नि से जन्मी, पांडवों की पत्नी', meaningMR:'राजा द्रुपदाची कन्या, यज्ञातील अग्नीतून जन्मलेली, पांडवांची पत्नी' },
+    { name:'Ganga', source:'Puranas', meaningEN:'The sacred river personified as a goddess', meaningHI:'पवित्र नदी का देवी रूप', meaningMR:'पवित्र नदीचे देवीरूप' },
+    { name:'Indira', source:'Puranas', meaningEN:'Beauty, splendour — an epithet of Goddess Lakshmi', meaningHI:'सौंदर्य, वैभव — देवी लक्ष्मी का नाम', meaningMR:'सौंदर्य, वैभव — देवी लक्ष्मीचे नाव' },
+    { name:'Janaki', source:'Ramayana', meaningEN:'Daughter of King Janaka — another name for Sita', meaningHI:'राजा जनक की पुत्री — सीता का नाम', meaningMR:'राजा जनकाची कन्या — सीतेचे नाव' },
+    { name:'Lopamudra', source:'Rigveda', meaningEN:'Wife of sage Agastya and a Vedic seer-poetess in her own right', meaningHI:'ऋषि अगस्त्य की पत्नी, स्वयं एक वैदिक ऋषिका', meaningMR:'ऋषी अगस्त्यांची पत्नी, स्वतः एक वैदिक ऋषिका' },
+    { name:'Maitreyi', source:'Upanishads', meaningEN:'A female philosopher in the Brihadaranyaka Upanishad, wife of sage Yajnavalkya', meaningHI:'बृहदारण्यक उपनिषद की विदुषी, ऋषि याज्ञवल्क्य की पत्नी', meaningMR:'बृहदारण्यक उपनिषदातील विदुषी, ऋषी याज्ञवल्क्यांची पत्नी' },
+    { name:'Nandini', source:'Puranas', meaningEN:'One who brings joy; the divine cow of sage Vasishtha', meaningHI:'आनंद देने वाली; ऋषि वसिष्ठ की दिव्य गाय', meaningMR:'आनंद देणारी; ऋषी वसिष्ठांची दिव्य गाय' },
+    { name:'Padma', source:'Puranas', meaningEN:'Lotus — an epithet of Goddess Lakshmi', meaningHI:'कमल — देवी लक्ष्मी का नाम', meaningMR:'कमळ — देवी लक्ष्मीचे नाव' },
+    { name:'Radhika', source:'Puranas', meaningEN:'Beloved of Krishna, symbol of divine love', meaningHI:'कृष्ण की प्रिय, दिव्य प्रेम का प्रतीक', meaningMR:'कृष्णाची प्रिय, दिव्य प्रेमाचे प्रतीक' },
+    { name:'Sati', source:'Puranas', meaningEN:'Shiva\'s consort in her first incarnation', meaningHI:'शिव की पहली अवतार वाली पत्नी', meaningMR:'शिवाची पहिल्या अवतारातील पत्नी' },
+    { name:'Uma', source:'Puranas', meaningEN:'Another name for Goddess Parvati', meaningHI:'देवी पार्वती का नाम', meaningMR:'देवी पार्वतीचे नाव' },
+    { name:'Yashoda', source:'Puranas', meaningEN:'Foster mother of Krishna', meaningHI:'कृष्ण की पालक माता', meaningMR:'कृष्णाची पालक माता' },
+    { name:'Gargi', source:'Upanishads', meaningEN:'A learned female philosopher who debates in the Brihadaranyaka Upanishad', meaningHI:'बृहदारण्यक उपनिषद की विदुषी दार्शनिक', meaningMR:'बृहदारण्यक उपनिषदातील विदुषी तत्त्वज्ञ' },
+    { name:'Savitri', source:'Mahabharata', meaningEN:'The devoted wife who won back her husband\'s life from Yama; also a Vedic hymn/goddess', meaningHI:'यमराज से पति का जीवन पुनः प्राप्त करने वाली साध्वी; एक वैदिक स्तुति/देवी', meaningMR:'यमराजाकडून पतीचे जीवन परत मिळवणारी साध्वी; एक वैदिक स्तुती/देवी' },
+    { name:'Rukmini', source:'Puranas', meaningEN:'Chief queen and consort of Krishna', meaningHI:'कृष्ण की प्रमुख रानी', meaningMR:'कृष्णाची प्रमुख राणी' },
+    { name:'Kaushalya', source:'Ramayana', meaningEN:'Mother of Rama, queen of Ayodhya', meaningHI:'राम की माता, अयोध्या की रानी', meaningMR:'रामाची माता, अयोध्येची राणी' },
+    { name:'Sita', source:'Ramayana', meaningEN:'Daughter of the earth, devoted consort of Rama', meaningHI:'धरती की पुत्री, राम की पतिव्रता पत्नी', meaningMR:'धरतीची कन्या, रामाची पतिव्रता पत्नी' },
+    { name:'Parvati', source:'Puranas', meaningEN:'Daughter of the mountains, consort of Shiva', meaningHI:'पर्वतराज की पुत्री, शिव की पत्नी', meaningMR:'पर्वतराजाची कन्या, शिवाची पत्नी' },
+    { name:'Saraswati', source:'Rigveda', meaningEN:'Goddess of knowledge, speech and learning — also a major Vedic river-goddess', meaningHI:'ज्ञान, वाणी व विद्या की देवी — एक प्रमुख वैदिक नदी-देवी', meaningMR:'ज्ञान, वाणी व विद्येची देवी — एक प्रमुख वैदिक नदी-देवी' },
+    { name:'Lakshmi', source:'Rigveda', meaningEN:'Goddess of wealth and prosperity, praised in the Sri Sukta', meaningHI:'धन-समृद्धि की देवी, श्री सूक्त में स्तुत', meaningMR:'धनधाराची देवी, श्री सूक्तात स्तुत' },
+    { name:'Chandrika', source:'Sanskrit', meaningEN:'Moonlight', meaningHI:'चंद्रमा की रोशनी', meaningMR:'चंद्रप्रकाश' },
+    { name:'Vasudha', source:'Sanskrit', meaningEN:'The earth, bearer of wealth', meaningHI:'धरा, वसुधा', meaningMR:'धरा, वसुधा' },
   ],
 };
 
@@ -1074,6 +1342,238 @@ const LIFE_EVENTS = {
     7: { years:'वय 7, 16, 25, 34, 43, 52', best:'संशोधन यश, आध्यात्मिक जागृती, जल-प्रवास.' },
     8: { years:'वय 8, 17, 26, 35, 44, 53', best:'मोठा आर्थिक लाभ, स्थावर मालमत्ता, कष्टाने मिळालेली सत्ता.' },
     9: { years:'वय 9, 18, 27, 36, 45, 54', best:'यश, धाडसाने विजय, मालमत्ता आणि मोठ्या ध्येयांची पूर्ती.' },
+  },
+};
+
+/* =========================================================
+   4d-2. Personality & life-path prediction paragraphs (per root 1–9)
+   Four topics per root number: social (behaviour & connection with others),
+   body (health & physical tendencies), love (romantic life) and career
+   (professional path — a longer, narrative companion to the short CAREERS
+   list above). One full paragraph each, per language.
+   ========================================================= */
+const PERSONALITY_PROFILES = {
+  en: {
+    1: {
+      social: "You lead rather than follow — in groups you naturally become the one others look to for direction. This independence can read as aloofness to people who don't know you yet, but those close to you value your straightforwardness and the confidence you bring into any room.",
+      body: "Ruled by the Sun, you carry strong vitality and recover from setbacks quickly, but you're prone to overworking through fatigue and headaches brought on by stress. Regular time away from responsibility — even short breaks — keeps your natural resilience intact.",
+      love: "You fall in love the way you do everything else: decisively. You need a partner who respects your independence rather than competing for control, and relationships thrive when both people have room to lead in their own domains.",
+      career: "Entrepreneurship, leadership and pioneering roles suit you far better than routine positions where you answer to layers of process. You do your best work when given ownership of an outcome and the freedom to reach it your own way — government, defence, administration and founding your own venture are all traditionally strong paths.",
+      money: "You earn through initiative rather than caution — money tends to arrive when you back your own ideas rather than wait for a salary to grow. The risk is ego-spending: buying to signal status or leadership. Wealth builds fastest when you treat money as a tool for independence rather than a scoreboard, and reinvest into ventures you personally drive.",
+      growth: "Your central life lesson is that leadership is not the same as doing everything alone. Learning to delegate, to accept help without feeling diminished, and to soften the drive to always be first is where your real growth lies. The years you stop needing to prove your strength are the years you become genuinely powerful.",
+    },
+    2: {
+      social: "You read a room before you speak in it, and that sensitivity makes you the person others confide in. Diplomacy comes naturally, though it can tip into indecision when you're the one who has to choose rather than mediate.",
+      body: "The Moon's influence gives you an emotionally-tied constitution — stress shows up first as sleep disturbance or digestive upset rather than obvious illness. A calm, low-drama routine and steady sleep hours matter more for you than for most other numbers.",
+      love: "You love deeply and give generously of your attention, sometimes to the point of losing your own preferences in the relationship. You're happiest with a partner who reciprocates the emotional effort rather than simply receiving it.",
+      career: "Roles built around people — counselling, HR, diplomacy, hospitality, public relations — let your intuition and tact become your biggest professional asset. You do less well isolated at a desk with no human contact; collaborative environments bring out your real strengths.",
+      money: "Your finances move in cycles like the Moon that rules you — flush one season, tight the next — so a steady reserve matters more for your peace of mind than for most numbers. You spend generously on others and on your home; the discipline to save a fixed amount before that generosity kicks in is what turns comfort into security.",
+      growth: "Your life lesson is to value your own needs as much as everyone else's. Learning to make a decision without seeking constant reassurance, and to set a boundary without guilt, is the growth that frees you. Your sensitivity is a gift — but only once you stop letting others' moods dictate your own.",
+    },
+    3: {
+      social: "Your optimism is contagious, and people are drawn to your company because conversations with you rarely stay flat for long. You're a natural communicator, though your enthusiasm for the next idea can outpace your follow-through on the current one.",
+      body: "Jupiter's expansive influence tends to show up physically as a love of good food, which without moderation becomes weight and liver-related strain over time. Movement that you actually enjoy — dance, sport, walking with company — works far better for you than a disciplined solo gym routine.",
+      love: "You need a partner who can keep up with your ideas and your social calendar, and who doesn't take your restlessness for disinterest. Long stretches of routine without novelty are what strain your relationships, not lack of affection.",
+      career: "Teaching, law, writing, media and consulting reward the exact mix of expression and quick thinking you carry naturally. Structured creative fields — where you're producing ideas but within a framework — tend to outperform either pure freelance chaos or rigid, idea-free corporate roles for you.",
+      money: "Money comes to you through many streams rather than one — Jupiter's luck favours you, but scattered income needs structure or it slips away as fast as it arrives. Your weakness is optimistic overspending on experiences and generosity to friends. A simple habit of setting aside a share of every windfall does more for you than any complex plan.",
+      growth: "Your life lesson is follow-through: turning your abundance of ideas into finished things. Scattering your energy across ten half-started projects is the pattern to outgrow. Learning to finish, to go deep instead of only wide, and to let a few commitments mature is what converts your natural talent into lasting achievement.",
+    },
+    4: {
+      social: "You're the reliable one — the friend people call when they need something actually done, not just sympathised with. That dependability sometimes gets mistaken for stubbornness, since you build trust slowly and don't warm up to new circles quickly.",
+      body: "Rahu's unpredictable influence in Chaldean tradition means your health runs steady for long periods and then dips suddenly rather than gradually — regular check-ups matter more for you than for numbers with more even patterns. Structure in diet and sleep timing keeps that unpredictability in check.",
+      love: "You show love through consistency and provision rather than grand gestures, and you need a partner who reads that correctly rather than mistaking steadiness for a lack of passion. Once committed, you are exceptionally loyal.",
+      career: "Engineering, IT, real estate, logistics and systems-heavy work reward your patience for detail and your comfort with long-term projects that don't pay off immediately. You build things that last — which is precisely why quick, high-churn environments frustrate you.",
+      money: "You are the natural saver of the numbers — steady, careful, and more comfortable building wealth slowly through property and fixed assets than through risk. That prudence is your strength; the trap is holding on so tightly that fear of loss blocks the sensible risks that would grow it. Money is safest with you, but it grows when you occasionally trust it out into the world.",
+      growth: "Your life lesson is flexibility — learning that not everything can be controlled, planned or made perfectly stable. The sudden upheavals your number is prone to are teachers, not just misfortunes: they push you to adapt. Loosening your grip, embracing change instead of resisting it, is the growth that turns your solid foundation into a living one.",
+    },
+    5: {
+      social: "You're the easiest number to get along with in any new setting — quick with conversation, comfortable with strangers, and genuinely energised by variety in the people around you. The tradeoff is that close, unchanging routines with the same small circle can start to feel confining.",
+      body: "Mercury's quicksilver influence gives you a nervous, highly-responsive system — you recover fast from illness but are more susceptible to stress-related nervous and digestive issues than most. Frequent small changes of scene (even a walk, a new route, a short trip) genuinely help regulate you.",
+      love: "You need freedom inside a relationship more than most numbers do, and partners who try to pin you down too tightly will feel you pulling away. The right partner gives you room to roam and trusts you to come back — because you do.",
+      career: "Business, sales, marketing, travel and communication-heavy roles let your adaptability become an asset instead of a liability. Anything that keeps you moving, talking to new people, or working across varied projects suits you better than a single unchanging desk job.",
+      money: "You have a real gift for making money move — trading, deals, side ventures and quick opportunities all come naturally. The flip side is impulsive spending and a taste for risk that can swing your finances sharply. Wealth builds when you channel your quick instincts into a few disciplined bets rather than a constant churn of speculation.",
+      growth: "Your life lesson is commitment — learning that freedom and consistency are not enemies. The restlessness that makes you adaptable can also keep you from finishing what you start or staying long enough to reap the reward. Growth for you is choosing to root down in the right places while keeping your love of variety alive within them.",
+    },
+    6: {
+      social: "You're a natural nurturer — people gravitate to you for comfort, taste and warmth, and you're often the one quietly holding a group or family together. The risk is over-giving: you can end up managing everyone else's needs before your own.",
+      body: "Venus's influence tends to show up as a love of comfort and rich living, which without balance leans toward weight gain and sluggishness. Because your wellbeing is closely tied to your surroundings, a genuinely pleasant, uncluttered living space does more for your health than strict discipline alone.",
+      love: "Love and romance sit close to the centre of your life, more than for almost any other number, and you invest deeply once committed. You thrive with a partner who appreciates beauty, home and family the way you do, and struggle in relationships that stay purely practical with no warmth.",
+      career: "Design, fashion, hospitality, medicine, the arts and any field built around beauty, care or comfort draw out your natural talents. You do your best work when the outcome improves someone's life or surroundings directly — you're drawn to service, not abstraction.",
+      money: "Venus gives you a comfortable relationship with money and often a knack for attracting it, but also a genuine love of beautiful, expensive things. You spend on home, family and quality of life without much guilt. Your finances stay healthy as long as your generosity toward loved ones doesn't outrun your income — set a comfort budget and let the rest compound.",
+      growth: "Your life lesson is balance — learning to receive care as freely as you give it, and to serve others without dissolving into their needs. Over-responsibility and worry for everyone around you is the pattern to outgrow. Your growth is discovering that you can nurture from a full cup, not an empty one, and that saying no is sometimes the most loving act.",
+    },
+    7: {
+      social: "You keep a wider circle at a comfortable distance and reserve real closeness for very few — not from coldness, but because you process the world internally first. People often describe you as hard to read, which is fair, since you rarely perform emotions you're not actually having.",
+      body: "Ketu's influence tends to make you more sensitive to environment and diet than most, with a nervous system that reacts to noise, crowding or poor sleep faster than it shows outwardly. Quiet, solitary recovery time isn't optional for you — it's how you actually recharge.",
+      love: "You need a partner who doesn't take your need for solitude personally, and who is comfortable with silence rather than constant reassurance. Once someone earns your trust, the bond tends to be unusually deep and enduring.",
+      career: "Research, science, philosophy, spirituality, analytics and any field that rewards depth over speed let your natural inclination toward solitary, focused thinking become an advantage rather than a social liability. Fast-paced, people-heavy environments drain you faster than they would most other numbers.",
+      money: "Money is rarely your primary motivation, and you're happiest when it simply frees you to pursue what interests you rather than being an end in itself. You can be surprisingly detached about wealth, which protects you from greed but can leave practical finances neglected. A simple, automated system suits you — set it up once so your mind stays free for deeper things.",
+      growth: "Your life lesson is trust — learning to open to others and to life rather than retreating into analysis and solitude whenever things feel uncertain. Your depth is a rare gift, but isolation can curdle into loneliness or cynicism. Growth for you is letting faith, connection and a few trusted people back into a world you tend to keep at arm's length.",
+    },
+    8: {
+      social: "You carry natural authority, and people sense it even when you're not asserting it directly — which makes you a strong leader but occasionally an intimidating presence in casual settings. Saturn's discipline in you means you take relationships seriously and don't invest lightly.",
+      body: "Saturn's heavier influence in Chaldean tradition tends to show up as bone, joint or knee-related strain and a susceptibility to chronic stress over time — your health responds better to steady, disciplined routines than to sudden intense efforts. Rest is not a luxury for you; it's maintenance.",
+      love: "You love with commitment and endurance rather than constant displays of affection, and can be misread as distant when you're actually deeply invested. A partner who values loyalty and long-term building over short-term romance suits you best.",
+      career: "Finance, law, large-scale industry, construction and positions of real authority reward your capacity to carry weight others can't. Success often comes later and harder-won than for other numbers, but tends to be more durable once achieved.",
+      money: "You are built for long-term wealth — Saturn rewards patience, discipline and the willingness to endure lean years for a solid result. Money tends to come slowly, then substantially. Your risk is either extreme caution that misses opportunity, or over-leveraging in pursuit of the status you quietly crave. Steady, disciplined building is where your fortune is genuinely made.",
+      growth: "Your life lesson is that success measured only in material terms leaves you empty. Learning to lighten your seriousness, to trust that the universe isn't only obstacles, and to find meaning beyond achievement is your deepest growth. The hardships your number attracts early in life are the very things that forge your later strength — if you don't let them harden you.",
+    },
+    9: {
+      social: "You're drawn to causes bigger than yourself, and people notice your intensity before they notice anything else about you. That same fire makes you a natural leader in a crisis, but it can also tip into combativeness when you feel an injustice needs correcting immediately.",
+      body: "Mars's influence gives you strong physical energy and a fast metabolism, but also a temper that runs hot — unresolved anger tends to surface as inflammation, blood pressure or accident-proneness over time. Physical outlets for that energy (sport, intense exercise) matter more for you than for calmer numbers.",
+      love: "You love passionately and protectively, sometimes fiercely enough to overwhelm a quieter partner. The relationships that last are the ones where your intensity is met with equal honesty rather than avoidance or placation.",
+      career: "Defence, sports, surgery, engineering and social work all rewards the same trait: the willingness to act decisively where others hesitate. You're built for roles with real stakes and clear outcomes, not slow-moving bureaucratic ones.",
+      money: "You earn through drive and courage — Mars favours bold action, and money often follows the risks others won't take. But that same fire makes you spend impulsively and act before calculating, so windfalls can vanish as fast as they come. Wealth builds when you pause between impulse and purchase, and put your energy into building rather than proving.",
+      growth: "Your life lesson is channelling your fire — learning to fight for causes without becoming combative, and to act decisively without acting rashly. Patience and forgiveness are the hardest and most transformative lessons for you. When you learn to direct your immense energy at what you're building rather than at what angers you, you become genuinely unstoppable.",
+    },
+  },
+  hi: {
+    1: {
+      social: "आप अनुसरण करने के बजाय नेतृत्व करते हैं — समूह में स्वाभाविक रूप से वही व्यक्ति बन जाते हैं जिसकी ओर सब दिशा के लिए देखते हैं। यह स्वतंत्रता उन लोगों को दूरी जैसी लग सकती है जो आपको नहीं जानते, पर करीबी लोग आपकी स्पष्टवादिता और आत्मविश्वास को महत्व देते हैं।",
+      body: "सूर्य के प्रभाव से आपमें प्रबल जीवनशक्ति है और आप असफलताओं से जल्दी उठ खड़े होते हैं, पर तनाव से सिरदर्द व अधिक काम की थकान का खतरा रहता है। जिम्मेदारियों से नियमित छोटा विश्राम आपकी सहज सहनशक्ति बनाए रखता है।",
+      love: "आप प्रेम में भी निर्णायक होते हैं। आपको ऐसे साथी की ज़रूरत है जो आपकी स्वतंत्रता का सम्मान करे, नियंत्रण के लिए प्रतिस्पर्धा न करे — जब दोनों को अपने क्षेत्र में नेतृत्व की जगह मिलती है, रिश्ता फलता-फूलता है।",
+      career: "उद्यमिता, नेतृत्व व अग्रणी भूमिकाएँ आपके लिए नियमित पदों से कहीं बेहतर हैं जहाँ आपको कई स्तरों की प्रक्रिया का पालन करना पड़े। परिणाम की स्वयं ज़िम्मेदारी व अपने तरीके से पहुँचने की स्वतंत्रता मिलने पर आप सर्वश्रेष्ठ काम करते हैं — सरकार, रक्षा, प्रशासन व स्वयं का उद्यम आरंभ करना परंपरागत रूप से शक्तिशाली मार्ग हैं।",
+      money: "आप सतर्कता से नहीं, पहल से कमाते हैं — पैसा तब आता है जब आप अपने विचारों पर भरोसा करते हैं, न कि वेतन बढ़ने की प्रतीक्षा करते हैं। जोखिम है अहं-खर्च: रुतबा दिखाने के लिए खरीदना। जब आप पैसे को स्कोरबोर्ड नहीं बल्कि स्वतंत्रता का साधन मानते हैं और स्वयं चलाए उद्यमों में पुनर्निवेश करते हैं, तब धन सबसे तेज़ बढ़ता है।",
+      growth: "आपका मुख्य जीवन-पाठ यह है कि नेतृत्व सब कुछ अकेले करना नहीं है। कार्य सौंपना सीखना, कमज़ोर महसूस किए बिना मदद स्वीकार करना, और हमेशा प्रथम रहने की चाह को नरम करना — यहीं आपका असली विकास है। जिन वर्षों में आप अपनी शक्ति सिद्ध करने की ज़रूरत छोड़ देते हैं, वही वर्ष आपको सचमुच शक्तिशाली बनाते हैं।",
+    },
+    2: {
+      social: "आप बोलने से पहले माहौल को समझते हैं, और यही संवेदनशीलता आपको वह व्यक्ति बनाती है जिससे लोग अपनी बात साझा करते हैं। कूटनीति स्वाभाविक है, पर जब आपको ही निर्णय लेना हो — न कि मध्यस्थता करनी हो — तो यह अनिर्णय में बदल सकती है।",
+      body: "चंद्रमा का प्रभाव आपकी संरचना को भावनाओं से जोड़ता है — तनाव सबसे पहले स्पष्ट बीमारी के रूप में नहीं, बल्कि नींद की गड़बड़ी या पाचन समस्या के रूप में दिखता है। शांत, कम उथल-पुथल वाली दिनचर्या व नियमित नींद आपके लिए अन्य अंकों से अधिक महत्वपूर्ण है।",
+      love: "आप गहराई से प्रेम करते हैं और अपना ध्यान उदारता से देते हैं, कभी-कभी इस हद तक कि रिश्ते में अपनी पसंद खो देते हैं। ऐसे साथी के साथ आप सबसे प्रसन्न रहते हैं जो भावनात्मक प्रयास का बदला दे, न कि केवल प्राप्त करे।",
+      career: "परामर्श, मानव संसाधन, कूटनीति, आतिथ्य व जनसंपर्क जैसी लोगों-केंद्रित भूमिकाएँ आपकी सहज-बुद्धि व चतुराई को आपकी सबसे बड़ी व्यावसायिक संपत्ति बनाती हैं। मानवीय संपर्क रहित एकाकी डेस्क-कार्य में आप कम प्रभावी रहते हैं; सहयोगी माहौल आपकी वास्तविक शक्तियाँ सामने लाता है।",
+      money: "आपका धन आपके स्वामी चंद्रमा की तरह चक्रों में चलता है — एक मौसम भरा-पूरा, अगला तंग — इसलिए मन की शांति के लिए एक स्थिर बचत अन्य अंकों से अधिक ज़रूरी है। आप दूसरों पर व अपने घर पर उदारता से खर्च करते हैं; उस उदारता से पहले एक निश्चित राशि बचाने का अनुशासन ही आराम को सुरक्षा में बदलता है।",
+      growth: "आपका जीवन-पाठ है अपनी ज़रूरतों को सबकी ज़रूरतों जितना ही महत्व देना। निरंतर आश्वासन खोजे बिना निर्णय लेना, और अपराधबोध के बिना सीमा तय करना सीखना — यही विकास आपको मुक्त करता है। आपकी संवेदनशीलता एक उपहार है — पर तभी जब आप दूसरों के मूड को अपना मूड तय करने देना बंद करते हैं।",
+    },
+    3: {
+      social: "आपका उत्साह संक्रामक है, और लोग आपकी संगति की ओर खिंचते हैं क्योंकि आपसे बातचीत शायद ही कभी नीरस रहती है। आप स्वाभाविक संचारक हैं, पर अगले विचार का उत्साह वर्तमान को पूरा करने की गति से आगे निकल सकता है।",
+      body: "बृहस्पति के विस्तारशील प्रभाव से अच्छे भोजन का प्रेम शारीरिक रूप में दिखता है, जो संयम के बिना समय के साथ वज़न व लिवर संबंधी तनाव बन सकता है। आपके लिए वह गतिविधि बेहतर है जो आपको वास्तव में पसंद हो — नृत्य, खेल, साथ में चलना — अकेले अनुशासित जिम-दिनचर्या से बेहतर।",
+      love: "आपको ऐसे साथी की ज़रूरत है जो आपके विचारों व सामाजिक व्यस्तता के साथ चल सके, और आपकी बेचैनी को उदासीनता न समझे। रिश्तों पर तनाव नवीनता की कमी से आता है, स्नेह की कमी से नहीं।",
+      career: "शिक्षण, कानून, लेखन, मीडिया व परामर्श आपकी अभिव्यक्ति व त्वरित सोच के स्वाभाविक मिश्रण को पुरस्कृत करते हैं। संरचित रचनात्मक क्षेत्र — जहाँ आप एक ढाँचे के भीतर विचार उत्पन्न करते हैं — शुद्ध स्वतंत्र अव्यवस्था या सख्त, विचार-रहित कॉर्पोरेट भूमिकाओं से आपके लिए बेहतर परिणाम देते हैं।",
+      money: "पैसा आपके पास एक नहीं, कई स्रोतों से आता है — बृहस्पति का सौभाग्य आपका साथ देता है, पर बिखरी आय को संरचना चाहिए वरना जितनी तेज़ी से आती है उतनी ही तेज़ी से फिसल जाती है। आपकी कमज़ोरी है अनुभवों पर आशावादी अति-खर्च व मित्रों पर उदारता। हर आकस्मिक लाभ का एक हिस्सा अलग रखने की सरल आदत किसी जटिल योजना से अधिक काम करती है।",
+      growth: "आपका जीवन-पाठ है परिणति — विचारों की अपनी प्रचुरता को पूर्ण की गई चीज़ों में बदलना। दस अधूरे प्रोजेक्टों में ऊर्जा बिखेरना वह प्रवृत्ति है जिससे आगे बढ़ना है। पूरा करना, केवल विस्तार नहीं बल्कि गहराई में जाना, और कुछ प्रतिबद्धताओं को परिपक्व होने देना सीखना ही आपकी प्रतिभा को स्थायी उपलब्धि में बदलता है।",
+    },
+    4: {
+      social: "आप भरोसेमंद व्यक्ति हैं — वह मित्र जिसे लोग तब बुलाते हैं जब उन्हें केवल सहानुभूति नहीं, बल्कि वास्तव में काम पूरा करने वाला कोई चाहिए। यह भरोसा कभी-कभी ज़िद समझ लिया जाता है, क्योंकि आप धीरे-धीरे विश्वास बनाते हैं और नए दायरों में जल्दी नहीं घुलते।",
+      body: "चाल्डियन परंपरा में राहु का अप्रत्याशित प्रभाव यह दर्शाता है कि आपका स्वास्थ्य लंबे समय तक स्थिर रहता है और फिर धीरे-धीरे नहीं बल्कि अचानक गिरता है — नियमित जांच आपके लिए अन्य अंकों से अधिक महत्वपूर्ण है। आहार व नींद के समय में अनुशासन इस अप्रत्याशितता को नियंत्रित रखता है।",
+      love: "आप प्रेम बड़े इशारों से नहीं, स्थिरता व सहयोग से दिखाते हैं, और आपको ऐसे साथी की ज़रूरत है जो इसे सही ढंग से समझे, न कि स्थिरता को जोश की कमी माने। एक बार प्रतिबद्ध होने पर आप असाधारण रूप से वफादार होते हैं।",
+      career: "इंजीनियरिंग, आईटी, रियल एस्टेट, लॉजिस्टिक्स व व्यवस्था-प्रधान कार्य आपके विवरण के प्रति धैर्य व दीर्घकालीन परियोजनाओं में सहजता को पुरस्कृत करते हैं। आप वह बनाते हैं जो टिकता है — यही कारण है कि तेज़, बार-बार बदलने वाले माहौल आपको निराश करते हैं।",
+      money: "आप अंकों में स्वाभाविक बचतकर्ता हैं — स्थिर, सतर्क, और जोखिम की बजाय संपत्ति व स्थिर परिसंपत्तियों के ज़रिए धीरे-धीरे धन बनाने में अधिक सहज। यही विवेक आपकी शक्ति है; जाल यह है कि इतनी कसकर पकड़ें कि हानि का भय उन समझदार जोखिमों को रोक दे जो इसे बढ़ाते। पैसा आपके पास सबसे सुरक्षित है, पर बढ़ता तब है जब आप कभी-कभी उसे दुनिया में भरोसे से निकलने देते हैं।",
+      growth: "आपका जीवन-पाठ है लचीलापन — यह सीखना कि हर चीज़ को नियंत्रित, नियोजित या पूरी तरह स्थिर नहीं किया जा सकता। आपके अंक की अचानक उथल-पुथल केवल दुर्भाग्य नहीं, शिक्षक हैं: वे आपको अनुकूलन के लिए प्रेरित करती हैं। पकड़ ढीली करना, बदलाव का विरोध करने के बजाय उसे अपनाना — यही विकास आपकी ठोस नींव को एक जीवंत नींव में बदलता है।",
+    },
+    5: {
+      social: "किसी भी नए माहौल में आप सबसे सहज व्यक्ति हैं — बातचीत में तेज़, अजनबियों के साथ सहज, और लोगों की विविधता से वास्तव में ऊर्जावान। पर यही स्थिर, अपरिवर्तित दिनचर्या व एक ही छोटे दायरे में बंधे रहना आपको सीमित महसूस करा सकता है।",
+      body: "बुध के तेज़ प्रभाव से आपका तंत्रिका तंत्र अत्यंत संवेदनशील होता है — आप बीमारी से जल्दी उबरते हैं पर तनाव-जनित तंत्रिका व पाचन समस्याओं के प्रति अधिक संवेदनशील हैं। दृश्य में बार-बार छोटे बदलाव (यहाँ तक कि एक सैर, नया रास्ता, छोटी यात्रा) वास्तव में आपको संतुलित रखते हैं।",
+      love: "आपको रिश्ते के भीतर स्वतंत्रता की ज़रूरत अधिकांश अंकों से अधिक है, और जो साथी आपको बहुत बांधने की कोशिश करते हैं, आप उनसे दूर खिंचते महसूस करेंगे। सही साथी आपको घूमने की जगह देता है और आपके लौट आने पर भरोसा करता है — क्योंकि आप लौटते हैं।",
+      career: "व्यापार, बिक्री, मार्केटिंग, यात्रा व संचार-प्रधान भूमिकाएँ आपकी अनुकूलनशीलता को बोझ नहीं, संपत्ति बनाती हैं। जो भी आपको गतिशील रखे, नए लोगों से बात कराए, या विविध परियोजनाओं में काम कराए, वह एक ही अपरिवर्तित डेस्क-नौकरी से बेहतर है।",
+      money: "आपमें पैसे को गतिमान करने की सचमुच प्रतिभा है — व्यापार, सौदे, अतिरिक्त उद्यम व त्वरित अवसर सब स्वाभाविक रूप से आते हैं। दूसरा पहलू है आवेगपूर्ण खर्च व जोखिम का शौक जो आपके धन को तेज़ी से झुला सकता है। धन तब बनता है जब आप अपनी त्वरित प्रवृत्ति को निरंतर सट्टेबाज़ी की बजाय कुछ अनुशासित दांवों में लगाते हैं।",
+      growth: "आपका जीवन-पाठ है प्रतिबद्धता — यह सीखना कि स्वतंत्रता व निरंतरता शत्रु नहीं हैं। जो बेचैनी आपको अनुकूल बनाती है, वही आपको शुरू किए काम को पूरा करने या पर्याप्त समय तक टिकने से रोक सकती है। आपके लिए विकास है सही जगहों पर जड़ें जमाना, साथ ही उनके भीतर विविधता के अपने प्रेम को जीवित रखना।",
+    },
+    6: {
+      social: "आप स्वाभाविक पालनहार हैं — लोग आराम, रुचि व स्नेह के लिए आपकी ओर आते हैं, और अक्सर आप ही चुपचाप किसी समूह या परिवार को जोड़े रखते हैं। जोखिम यह है कि अति-त्याग में आप अपनी ज़रूरतों से पहले सबकी ज़रूरतें संभालने लगते हैं।",
+      body: "शुक्र का प्रभाव आराम व समृद्ध जीवन के प्रेम में दिखता है, जो संतुलन के बिना वज़न बढ़ने व सुस्ती की ओर झुक सकता है। आपकी भलाई परिवेश से गहराई से जुड़ी है, इसलिए एक सचमुच सुखद, व्यवस्थित रहने का स्थान सख्त अनुशासन से अधिक आपके स्वास्थ्य के लिए करता है।",
+      love: "प्रेम व रोमांस आपके जीवन के केंद्र के करीब बैठते हैं, लगभग किसी भी अन्य अंक से अधिक, और प्रतिबद्ध होने पर आप गहराई से निवेश करते हैं। जो साथी सौंदर्य, घर व परिवार को आपके जैसा महत्व दे, उसके साथ आप फलते-फूलते हैं; पूरी तरह व्यावहारिक, स्नेह-रहित रिश्तों में आप संघर्ष करते हैं।",
+      career: "डिज़ाइन, फैशन, आतिथ्य, चिकित्सा, कला व सौंदर्य-देखभाल-आराम पर आधारित कोई भी क्षेत्र आपकी स्वाभाविक प्रतिभा को उभारता है। जब परिणाम किसी के जीवन या परिवेश को सीधे सुधारे, तब आप सर्वश्रेष्ठ काम करते हैं — आप सेवा की ओर आकर्षित हैं, अमूर्तता की ओर नहीं।",
+      money: "शुक्र आपको पैसे के साथ एक आरामदायक रिश्ता और अक्सर उसे आकर्षित करने की कला देता है, पर सुंदर, महंगी चीज़ों का सच्चा प्रेम भी। आप घर, परिवार व जीवन की गुणवत्ता पर बिना अधिक अपराधबोध के खर्च करते हैं। जब तक प्रियजनों के प्रति आपकी उदारता आय से आगे न निकले, आपका धन स्वस्थ रहता है — एक आराम-बजट तय करें और बाकी को बढ़ने दें।",
+      growth: "आपका जीवन-पाठ है संतुलन — देने जितनी सहजता से देखभाल स्वीकार करना, और दूसरों की सेवा उनमें विलीन हुए बिना करना सीखना। अति-ज़िम्मेदारी व सबकी चिंता वह प्रवृत्ति है जिससे आगे बढ़ना है। आपका विकास यह पता लगाना है कि आप भरे प्याले से पोषण दे सकते हैं, खाली से नहीं, और कभी-कभी 'ना' कहना ही सबसे प्रेमपूर्ण कार्य है।",
+    },
+    7: {
+      social: "आप व्यापक दायरे को आरामदायक दूरी पर रखते हैं और वास्तविक निकटता बहुत कम लोगों के लिए आरक्षित रखते हैं — ठंडेपन से नहीं, बल्कि इसलिए कि आप दुनिया को पहले भीतर ही समझते हैं। लोग अक्सर आपको समझने में कठिन कहते हैं, जो सही है, क्योंकि आप वे भावनाएँ शायद ही कभी दिखाते हैं जो आप वास्तव में नहीं अनुभव कर रहे।",
+      body: "केतु का प्रभाव आपको अधिकांश लोगों से अधिक पर्यावरण व आहार के प्रति संवेदनशील बनाता है, और आपका तंत्रिका तंत्र शोर, भीड़ या खराब नींद पर बाहर दिखने से पहले ही प्रतिक्रिया करता है। शांत, एकांत विश्राम समय आपके लिए वैकल्पिक नहीं है — यही आपकी वास्तविक पुनर्भरण विधि है।",
+      love: "आपको ऐसे साथी की ज़रूरत है जो आपकी एकांत की आवश्यकता को व्यक्तिगत रूप से न ले, और निरंतर आश्वासन के बजाय शांति में सहज हो। एक बार कोई आपका विश्वास जीत ले, तो बंधन असामान्य रूप से गहरा व स्थायी होता है।",
+      career: "शोध, विज्ञान, दर्शन, अध्यात्म, विश्लेषण व गहराई को गति से अधिक पुरस्कृत करने वाला कोई भी क्षेत्र आपकी एकाकी, केंद्रित सोच की सहज प्रवृत्ति को सामाजिक कमज़ोरी नहीं, बल्कि लाभ बनाता है। तेज़-गति, लोगों-भरे माहौल आपको अन्य अधिकांश अंकों से जल्दी थका देते हैं।",
+      money: "पैसा शायद ही कभी आपकी मुख्य प्रेरणा होता है, और आप तब सबसे प्रसन्न रहते हैं जब वह केवल आपको अपनी रुचि का पीछा करने की स्वतंत्रता दे, स्वयं में एक लक्ष्य न बने। आप धन के प्रति आश्चर्यजनक रूप से निर्लिप्त रह सकते हैं, जो आपको लोभ से बचाता है पर व्यावहारिक वित्त की उपेक्षा करा सकता है। एक सरल, स्वचालित प्रणाली आपके लिए उपयुक्त है — एक बार सेट करें ताकि मन गहरी बातों के लिए मुक्त रहे।",
+      growth: "आपका जीवन-पाठ है भरोसा — यह सीखना कि जब भी चीज़ें अनिश्चित लगें, विश्लेषण व एकांत में सिमटने के बजाय दूसरों व जीवन के प्रति खुलना। आपकी गहराई एक दुर्लभ उपहार है, पर एकांत अकेलेपन या निराशावाद में बदल सकता है। आपके लिए विकास है विश्वास, जुड़ाव व कुछ भरोसेमंद लोगों को उस दुनिया में वापस आने देना जिसे आप दूरी पर रखते हैं।",
+    },
+    8: {
+      social: "आप स्वाभाविक अधिकार रखते हैं, और लोग इसे तब भी महसूस करते हैं जब आप इसे सीधे व्यक्त नहीं कर रहे — जो आपको एक मज़बूत नेता बनाता है पर कभी-कभी सामान्य परिवेश में डरावना उपस्थिति भी। आपमें शनि का अनुशासन रिश्तों को गंभीरता से लेता है और आप हल्के में निवेश नहीं करते।",
+      body: "चाल्डियन परंपरा में शनि का भारी प्रभाव अक्सर हड्डी, जोड़ या घुटने संबंधी तनाव व समय के साथ दीर्घकालिक तनाव की संवेदनशीलता में दिखता है — आपका स्वास्थ्य अचानक तीव्र प्रयासों की बजाय स्थिर, अनुशासित दिनचर्या पर बेहतर प्रतिक्रिया देता है। आराम आपके लिए विलासिता नहीं, अनुरक्षण है।",
+      love: "आप निरंतर स्नेह प्रदर्शन के बजाय प्रतिबद्धता व सहनशक्ति से प्रेम करते हैं, और जब आप वास्तव में गहराई से निवेशित हों तब भी दूर समझे जा सकते हैं। जो साथी वफादारी व दीर्घकालीन निर्माण को अल्पकालिक रोमांस से अधिक महत्व दे, वह आपके लिए सबसे उपयुक्त है।",
+      career: "वित्त, कानून, बड़े पैमाने के उद्योग, निर्माण व वास्तविक अधिकार के पद आपकी वह भार वहन करने की क्षमता पुरस्कृत करते हैं जो अन्य नहीं उठा सकते। सफलता अक्सर अन्य अंकों की तुलना में देर से व अधिक कठिनाई से आती है, पर एक बार प्राप्त होने पर अधिक स्थायी रहती है।",
+      money: "आप दीर्घकालीन धन के लिए बने हैं — शनि धैर्य, अनुशासन व ठोस परिणाम के लिए दुबले वर्ष सहने की इच्छा को पुरस्कृत करता है। पैसा धीरे आता है, फिर पर्याप्त मात्रा में। आपका जोखिम है या तो अत्यधिक सतर्कता जो अवसर चूक जाए, या उस रुतबे की चाह में अति-कर्ज़ जिसे आप चुपचाप चाहते हैं। स्थिर, अनुशासित निर्माण में ही आपका सच्चा भाग्य बनता है।",
+      growth: "आपका जीवन-पाठ यह है कि केवल भौतिक रूप में मापी गई सफलता आपको खाली छोड़ देती है। अपनी गंभीरता को हल्का करना, यह भरोसा करना कि ब्रह्मांड केवल बाधाएँ नहीं है, और उपलब्धि से परे अर्थ खोजना ही आपका सबसे गहरा विकास है। जीवन में जल्दी आने वाली कठिनाइयाँ ही आपकी बाद की शक्ति गढ़ती हैं — यदि आप उन्हें स्वयं को कठोर न बनाने दें।",
+    },
+    9: {
+      social: "आप स्वयं से बड़े उद्देश्यों की ओर आकर्षित होते हैं, और लोग आपके बारे में कुछ और नोटिस करने से पहले आपकी तीव्रता को नोटिस करते हैं। यही अग्नि आपको संकट में स्वाभाविक नेता बनाती है, पर जब आपको लगे कि अन्याय को तुरंत ठीक करना है, तो यह टकराव में भी बदल सकती है।",
+      body: "मंगल का प्रभाव आपको प्रबल शारीरिक ऊर्जा व तेज़ मेटाबॉलिज़्म देता है, पर स्वभाव भी गर्म रहता है — अनसुलझा क्रोध समय के साथ सूजन, रक्तचाप या दुर्घटना-प्रवणता के रूप में सामने आ सकता है। उस ऊर्जा के लिए शारीरिक निकास (खेल, तीव्र व्यायाम) शांत अंकों से अधिक आपके लिए महत्वपूर्ण है।",
+      love: "आप जोश व सुरक्षात्मक भाव से प्रेम करते हैं, कभी-कभी इतनी तीव्रता से कि शांत साथी अभिभूत हो जाए। जो रिश्ते टिकते हैं वे वही हैं जहाँ आपकी तीव्रता को समान ईमानदारी से जवाब मिले, टालमटोल या मनुहार से नहीं।",
+      career: "रक्षा, खेल, शल्य चिकित्सा, इंजीनियरिंग व सामाजिक कार्य — सभी एक ही गुण को पुरस्कृत करते हैं: जहाँ अन्य हिचकते हैं वहाँ निर्णायक रूप से कार्य करने की इच्छाशक्ति। आप वास्तविक दांव व स्पष्ट परिणामों वाली भूमिकाओं के लिए बने हैं, धीमी नौकरशाही वाली नहीं।",
+      money: "आप जोश व साहस से कमाते हैं — मंगल साहसिक कर्म का पक्ष लेता है, और पैसा अक्सर उन जोखिमों के पीछे आता है जो अन्य नहीं लेते। पर यही अग्नि आवेगपूर्ण खर्च कराती है व गणना से पहले कार्य कराती है, इसलिए आकस्मिक लाभ जितनी तेज़ी से आते हैं उतनी ही तेज़ी से लुप्त हो सकते हैं। धन तब बनता है जब आप आवेग व खरीद के बीच रुकते हैं, और अपनी ऊर्जा सिद्ध करने की बजाय निर्माण में लगाते हैं।",
+      growth: "आपका जीवन-पाठ है अपनी अग्नि को दिशा देना — टकराव में बदले बिना उद्देश्यों के लिए लड़ना, और उतावली के बिना निर्णायक रूप से कार्य करना सीखना। धैर्य व क्षमा आपके लिए सबसे कठिन व सबसे परिवर्तनकारी पाठ हैं। जब आप अपनी विशाल ऊर्जा को क्रोध की बजाय अपने निर्माण की ओर लगाना सीखते हैं, तब आप सचमुच अजेय बन जाते हैं।",
+    },
+  },
+  mr: {
+    1: {
+      social: "तुम्ही अनुसरण करण्याऐवजी नेतृत्व करता — गटात स्वाभाविकपणे तीच व्यक्ती बनता ज्याकडे इतर दिशेसाठी पाहतात. ही स्वातंत्र्यता जे तुम्हाला ओळखत नाहीत त्यांना अलिप्तता वाटू शकते, पण जवळचे लोक तुमच्या स्पष्टवक्तेपणाला व आत्मविश्वासाला महत्त्व देतात.",
+      body: "सूर्याच्या प्रभावाने तुमच्यात मजबूत चैतन्य आहे व तुम्ही अपयशांतून लवकर उभे राहता, पण तणावामुळे डोकेदुखी व अति-कामाचा थकवा होण्याची शक्यता असते. जबाबदाऱ्यांपासून नियमित लहान विश्रांती तुमची सहज सहनशक्ती टिकवते.",
+      love: "प्रेमातही तुम्ही निर्णायक असता. तुम्हाला अशा जोडीदाराची गरज आहे जो तुमच्या स्वातंत्र्याचा आदर करेल, नियंत्रणासाठी स्पर्धा करणार नाही — दोघांनाही आपल्या क्षेत्रात नेतृत्वाची जागा मिळाल्यास नाते फुलते.",
+      career: "उद्योजकता, नेतृत्व व अग्रणी भूमिका तुमच्यासाठी नियमित पदांपेक्षा खूप चांगल्या आहेत जिथे तुम्हाला अनेक स्तरांच्या प्रक्रियेचे पालन करावे लागते. परिणामाची स्वतः जबाबदारी व स्वतःच्या पद्धतीने पोहोचण्याचे स्वातंत्र्य मिळाल्यावर तुम्ही सर्वोत्तम काम करता — सरकार, संरक्षण, प्रशासन व स्वतःचा उद्योग सुरू करणे हे परंपरागतरित्या सशक्त मार्ग आहेत.",
+      money: "तुम्ही सावधगिरीने नव्हे, पुढाकाराने कमावता — पैसा तेव्हा येतो जेव्हा तुम्ही स्वतःच्या कल्पनांवर विश्वास ठेवता, पगार वाढण्याची वाट पाहत नाही. धोका आहे अहं-खर्च: दर्जा दाखवण्यासाठी खरेदी. जेव्हा तुम्ही पैशाला गुणपट्टिका नव्हे तर स्वातंत्र्याचे साधन मानता आणि स्वतः चालवलेल्या उद्योगांत पुनर्गुंतवणूक करता, तेव्हा संपत्ती सर्वात वेगाने वाढते.",
+      growth: "तुमचा मुख्य जीवन-धडा हा आहे की नेतृत्व म्हणजे सर्वकाही एकट्याने करणे नव्हे. काम सोपवायला शिकणे, कमी वाटल्याशिवाय मदत स्वीकारणे, आणि नेहमी पहिले राहण्याची ओढ मऊ करणे — इथेच तुमचा खरा विकास आहे. ज्या वर्षांत तुम्ही आपली शक्ती सिद्ध करण्याची गरज सोडता, तीच वर्षे तुम्हाला खरोखर सामर्थ्यवान बनवतात.",
+    },
+    2: {
+      social: "तुम्ही बोलण्याआधी वातावरण समजून घेता, आणि हीच संवेदनशीलता तुम्हाला अशी व्यक्ती बनवते जिच्याशी लोक आपले मन मोकळे करतात. मुत्सद्देगिरी सहज आहे, पण जेव्हा तुम्हालाच निर्णय घ्यावा लागतो — मध्यस्थी नव्हे — तेव्हा ती अनिर्णयात बदलू शकते.",
+      body: "चंद्राचा प्रभाव तुमची रचना भावनांशी जोडतो — तणाव आधी स्पष्ट आजारापेक्षा झोपेतील अडथळा किंवा पचनाच्या समस्येच्या रूपात दिसतो. शांत, कमी गोंधळाची दैनंदिनी व नियमित झोप तुमच्यासाठी इतर अंकांपेक्षा अधिक महत्त्वाची आहे.",
+      love: "तुम्ही गहिरे प्रेम करता आणि आपले लक्ष उदारपणे देता, कधी कधी इतक्या प्रमाणात की नात्यात स्वतःची पसंती गमावता. अशा जोडीदारासोबत तुम्ही सर्वाधिक आनंदी राहता जो भावनिक प्रयत्नांची परतफेड करतो, केवळ घेत नाही.",
+      career: "समुपदेशन, मानव संसाधन, मुत्सद्देगिरी, आतिथ्य व जनसंपर्क यांसारख्या लोक-केंद्रित भूमिका तुमच्या सहजबुद्धी व चतुराईला तुमची सर्वात मोठी व्यावसायिक संपत्ती बनवतात. मानवी संपर्काशिवाय एकाकी डेस्क-कामात तुम्ही कमी प्रभावी राहता; सहयोगी वातावरण तुमची खरी शक्ती समोर आणते.",
+      money: "तुमचा पैसा तुमचा स्वामी चंद्राप्रमाणे चक्रांत फिरतो — एक हंगाम भरलेला, पुढचा तंग — म्हणून मनःशांतीसाठी स्थिर बचत तुम्हाला इतर अंकांपेक्षा अधिक महत्त्वाची आहे. तुम्ही इतरांवर व आपल्या घरावर उदारपणे खर्च करता; त्या उदारतेआधी ठराविक रक्कम बाजूला ठेवण्याची शिस्तच आरामाला सुरक्षिततेत बदलते.",
+      growth: "तुमचा जीवन-धडा आहे स्वतःच्या गरजांना इतर सर्वांच्या गरजांइतकेच महत्त्व देणे. सतत आश्वासन न शोधता निर्णय घेणे, आणि अपराधभावाशिवाय मर्यादा आखणे शिकणे — हाच विकास तुम्हाला मुक्त करतो. तुमची संवेदनशीलता ही देणगी आहे — पण तेव्हाच जेव्हा तुम्ही इतरांच्या मनःस्थितीला तुमची मनःस्थिती ठरवू देणे थांबवता.",
+    },
+    3: {
+      social: "तुमचा उत्साह संसर्गजन्य आहे, आणि लोक तुमच्या सोबतीकडे खेचले जातात कारण तुमच्याशी संभाषण फार क्वचित निरस राहते. तुम्ही स्वाभाविक संवादक आहात, पण पुढील कल्पनेचा उत्साह सध्याची पूर्ण करण्याच्या गतीपेक्षा पुढे जाऊ शकतो.",
+      body: "गुरूच्या विस्तारशील प्रभावाने चांगल्या अन्नाची आवड शारीरिकरित्या दिसते, जी संयमाशिवाय काळाबरोबर वजन व यकृताशी संबंधित तणाव बनू शकते. तुमच्यासाठी अशी हालचाल चांगली आहे जी तुम्हाला खरोखर आवडते — नृत्य, खेळ, सोबत चालणे — एकट्या शिस्तबद्ध जिम-दैनंदिनीपेक्षा.",
+      love: "तुम्हाला अशा जोडीदाराची गरज आहे जो तुमच्या कल्पना व सामाजिक व्यस्ततेसोबत टिकू शकेल, आणि तुमच्या अस्वस्थतेला उदासीनता समजणार नाही. नात्यांवर ताण नवीनतेच्या कमतरतेमुळे येतो, प्रेमाच्या कमतरतेमुळे नाही.",
+      career: "शिक्षण, कायदा, लेखन, माध्यम व सल्ला हे तुमच्या अभिव्यक्ती व जलद विचारांच्या नैसर्गिक मिश्रणाला बक्षीस देतात. संरचित सर्जनशील क्षेत्रे — जिथे तुम्ही एका चौकटीत कल्पना निर्माण करता — शुद्ध मुक्त अव्यवस्था किंवा कठोर, कल्पनाविरहित कॉर्पोरेट भूमिकांपेक्षा तुमच्यासाठी चांगले परिणाम देतात.",
+      money: "पैसा तुमच्याकडे एका नव्हे, अनेक स्रोतांतून येतो — गुरूचे भाग्य तुमची साथ देते, पण विखुरलेल्या उत्पन्नाला रचना हवी नाहीतर जितक्या वेगाने येते तितक्याच वेगाने निसटते. तुमची कमजोरी आहे अनुभवांवर आशावादी अति-खर्च व मित्रांवर उदारता. प्रत्येक अनपेक्षित लाभाचा एक भाग बाजूला ठेवण्याची साधी सवय कोणत्याही गुंतागुंतीच्या योजनेपेक्षा अधिक काम करते.",
+      growth: "तुमचा जीवन-धडा आहे पूर्णत्व — कल्पनांच्या तुमच्या विपुलतेला पूर्ण केलेल्या गोष्टींत बदलणे. दहा अर्धवट प्रकल्पांत ऊर्जा विखुरणे ही सवय ओलांडायची आहे. पूर्ण करणे, केवळ विस्तार नव्हे तर खोलात जाणे, आणि काही वचनबद्धता परिपक्व होऊ देणे शिकणे हेच तुमच्या प्रतिभेला चिरस्थायी यशात बदलते.",
+    },
+    4: {
+      social: "तुम्ही विश्वासार्ह व्यक्ती आहात — तो मित्र ज्याला लोक बोलावतात जेव्हा त्यांना केवळ सहानुभूती नव्हे, तर खरोखर काम पूर्ण करणारे कोणी हवे असते. हा विश्वास कधी कधी हट्टीपणा समजला जातो, कारण तुम्ही हळूहळू विश्वास निर्माण करता आणि नव्या वर्तुळांत लवकर मिसळत नाही.",
+      body: "कॅल्डियन परंपरेत राहूचा अनपेक्षित प्रभाव दर्शवतो की तुमचे आरोग्य दीर्घकाळ स्थिर राहते आणि नंतर हळूहळू नव्हे तर अचानक घसरते — नियमित तपासणी तुमच्यासाठी इतर अंकांपेक्षा अधिक महत्त्वाची आहे. आहार व झोपेच्या वेळेत शिस्त ही अनपेक्षितता नियंत्रणात ठेवते.",
+      love: "तुम्ही प्रेम मोठ्या इशाऱ्यांनी नव्हे, स्थिरता व पुरवठ्याने दाखवता, आणि तुम्हाला अशा जोडीदाराची गरज आहे जो हे योग्यरित्या समजेल, स्थिरतेला उत्कटतेची कमतरता समजणार नाही. एकदा वचनबद्ध झाल्यावर तुम्ही अपवादात्मकरित्या निष्ठावान असता.",
+      career: "अभियांत्रिकी, आयटी, स्थावर मालमत्ता, लॉजिस्टिक्स व व्यवस्था-प्रधान काम तुमच्या तपशिलाबद्दलच्या संयमाला व दीर्घकालीन प्रकल्पांतील सहजतेला बक्षीस देतात. तुम्ही असे बनवता जे टिकते — हेच कारण आहे की जलद, वारंवार बदलणारे वातावरण तुम्हाला निराश करते.",
+      money: "तुम्ही अंकांतील नैसर्गिक बचतकर्ते आहात — स्थिर, काळजीपूर्वक, आणि जोखमीपेक्षा मालमत्ता व स्थिर संपत्तीद्वारे हळूहळू संपत्ती उभारण्यात अधिक सहज. हाच विवेक तुमची शक्ती आहे; सापळा असा की इतक्या घट्ट धरता की तोट्याची भीती त्या समंजस जोखमींना रोखते ज्या ती वाढवतील. पैसा तुमच्याकडे सर्वात सुरक्षित आहे, पण वाढतो तेव्हा जेव्हा तुम्ही कधीकधी त्याला विश्वासाने जगात जाऊ देता.",
+      growth: "तुमचा जीवन-धडा आहे लवचिकता — हे शिकणे की प्रत्येक गोष्ट नियंत्रित, नियोजित किंवा पूर्णतः स्थिर करता येत नाही. तुमच्या अंकाला प्रवण असलेली अचानक उलथापालथ केवळ दुर्दैव नव्हे, शिक्षक आहेत: ती तुम्हाला जुळवून घ्यायला भाग पाडतात. पकड सैल करणे, बदलाला विरोध करण्याऐवजी स्वीकारणे — हाच विकास तुमच्या भक्कम पायाला जिवंत पायात बदलतो.",
+    },
+    5: {
+      social: "कोणत्याही नव्या वातावरणात तुम्ही सर्वात सहज व्यक्ती आहात — संभाषणात जलद, अनोळखी व्यक्तींसोबत सहज, आणि लोकांच्या विविधतेने खरोखर उत्साही. पण हीच स्थिर, न बदलणारी दैनंदिनी व एकाच लहान वर्तुळात बांधलेले राहणे तुम्हाला बंधनकारक वाटू शकते.",
+      body: "बुधाच्या जलद प्रभावाने तुमची तंत्रिका प्रणाली अत्यंत संवेदनशील असते — तुम्ही आजारातून लवकर बरे होता पण तणाव-जनित तंत्रिका व पचन समस्यांना अधिक संवेदनशील आहात. दृश्यात वारंवार लहान बदल (एक फेरी, नवीन मार्ग, लहान सहल) खरोखर तुम्हाला संतुलित ठेवतात.",
+      love: "तुम्हाला नात्यात स्वातंत्र्याची गरज बहुतांश अंकांपेक्षा अधिक आहे, आणि जे जोडीदार तुम्हाला खूप बांधण्याचा प्रयत्न करतात, त्यांच्यापासून तुम्ही दूर खेचले जाता असे वाटेल. योग्य जोडीदार तुम्हाला भटकण्याची जागा देतो व तुमच्या परत येण्यावर विश्वास ठेवतो — कारण तुम्ही परत येता.",
+      career: "व्यापार, विक्री, मार्केटिंग, प्रवास व संवाद-प्रधान भूमिका तुमच्या अनुकूलतेला भार नव्हे, संपत्ती बनवतात. जे काही तुम्हाला गतिमान ठेवते, नवीन लोकांशी बोलायला लावते, किंवा विविध प्रकल्पांत काम करायला लावते, ते एका न बदलणाऱ्या डेस्क-नोकरीपेक्षा चांगले आहे.",
+      money: "तुमच्यात पैसा गतिमान करण्याची खरी देणगी आहे — व्यापार, सौदे, अतिरिक्त उद्योग व झटपट संधी सर्व सहजपणे येतात. दुसरी बाजू म्हणजे आवेगपूर्ण खर्च व जोखमीची आवड जी तुमच्या आर्थिक स्थितीला तीव्रपणे झुलवू शकते. संपत्ती तेव्हा उभी राहते जेव्हा तुम्ही आपल्या झटपट प्रवृत्तीला सततच्या सट्टेबाजीऐवजी काही शिस्तबद्ध पैजांत वळवता.",
+      growth: "तुमचा जीवन-धडा आहे वचनबद्धता — हे शिकणे की स्वातंत्र्य व सातत्य शत्रू नाहीत. जी अस्वस्थता तुम्हाला अनुकूल बनवते, तीच तुम्हाला सुरू केलेले पूर्ण करण्यापासून किंवा फळ मिळेपर्यंत टिकण्यापासून रोखू शकते. तुमच्यासाठी विकास म्हणजे योग्य ठिकाणी मुळे रोवणे, त्याचबरोबर त्यांच्या आत विविधतेचे तुमचे प्रेम जिवंत ठेवणे.",
+    },
+    6: {
+      social: "तुम्ही स्वाभाविक पालनकर्ता आहात — लोक आराम, अभिरुची व स्नेहासाठी तुमच्याकडे येतात, आणि बहुधा तुम्हीच शांतपणे एखादा गट किंवा कुटुंब एकत्र ठेवता. धोका हा आहे की अति-त्यागात तुम्ही स्वतःच्या गरजांपूर्वी सर्वांच्या गरजा सांभाळू लागता.",
+      body: "शुक्राचा प्रभाव आराम व समृद्ध जीवनाच्या प्रेमात दिसतो, जो समतोलाशिवाय वजन वाढणे व सुस्तीकडे झुकू शकतो. तुमचे आरोग्य परिसराशी खोलवर जोडलेले आहे, म्हणून खरोखर आनंददायी, नीटनेटकी राहण्याची जागा कठोर शिस्तीपेक्षा तुमच्या आरोग्यासाठी अधिक करते.",
+      love: "प्रेम व रोमान्स तुमच्या जीवनाच्या केंद्राजवळ बसतात, जवळजवळ इतर कोणत्याही अंकापेक्षा अधिक, आणि वचनबद्ध झाल्यावर तुम्ही गहिरी गुंतवणूक करता. जो जोडीदार सौंदर्य, घर व कुटुंबाला तुमच्यासारखेच महत्त्व देतो, त्याच्यासोबत तुम्ही फुलता; पूर्णतः व्यावहारिक, स्नेहविरहित नात्यांत तुम्ही झगडता.",
+      career: "डिझाईन, फॅशन, आतिथ्य, वैद्यकशास्त्र, कला व सौंदर्य-काळजी-आरामावर आधारित कोणतेही क्षेत्र तुमची नैसर्गिक प्रतिभा उलगडते. जेव्हा परिणाम एखाद्याचे जीवन किंवा परिसर थेट सुधारतो, तेव्हा तुम्ही सर्वोत्तम काम करता — तुम्ही सेवेकडे आकर्षित आहात, अमूर्ततेकडे नाही.",
+      money: "शुक्र तुम्हाला पैशासोबत एक आरामदायक नाते आणि अनेकदा तो आकर्षित करण्याची कला देतो, पण सुंदर, महागड्या गोष्टींचे खरे प्रेमही. तुम्ही घर, कुटुंब व जीवनाच्या दर्जावर फारशा अपराधभावाशिवाय खर्च करता. जोपर्यंत प्रियजनांप्रती तुमची उदारता उत्पन्नाच्या पुढे जात नाही, तोपर्यंत तुमची आर्थिक स्थिती निरोगी राहते — एक आराम-अंदाजपत्रक ठरवा आणि बाकी वाढू द्या.",
+      growth: "तुमचा जीवन-धडा आहे समतोल — देण्याइतक्याच सहजतेने काळजी स्वीकारणे, आणि इतरांच्या गरजांत विरघळल्याशिवाय त्यांची सेवा करणे शिकणे. अति-जबाबदारी व सर्वांची चिंता ही सवय ओलांडायची आहे. तुमचा विकास म्हणजे हे शोधणे की तुम्ही भरलेल्या पेल्यातून पोषण देऊ शकता, रिकाम्यातून नाही, आणि कधीकधी 'नाही' म्हणणे हीच सर्वात प्रेमळ कृती आहे.",
+    },
+    7: {
+      social: "तुम्ही विस्तृत वर्तुळाला आरामदायक अंतरावर ठेवता आणि खरी जवळीक फार कमी लोकांसाठी राखता — थंडपणामुळे नव्हे, तर तुम्ही जगाला आधी आतून समजून घेता म्हणून. लोक अनेकदा तुम्हाला समजणे कठीण म्हणतात, जे बरोबर आहे, कारण तुम्ही क्वचितच अशा भावना दाखवता ज्या तुम्हाला खरोखर वाटत नाहीत.",
+      body: "केतूचा प्रभाव तुम्हाला बहुतांश लोकांपेक्षा वातावरण व आहाराबद्दल अधिक संवेदनशील बनवतो, आणि तुमची तंत्रिका प्रणाली आवाज, गर्दी किंवा वाईट झोपेवर बाहेरून दिसण्याआधीच प्रतिक्रिया देते. शांत, एकांत विश्रांतीचा वेळ तुमच्यासाठी पर्यायी नाही — हीच तुमची खरी पुनर्भरण पद्धत आहे.",
+      love: "तुम्हाला अशा जोडीदाराची गरज आहे जो तुमच्या एकांताच्या गरजेला व्यक्तिगत घेणार नाही, आणि सतत आश्वासनाऐवजी शांततेत सहज असेल. एकदा कोणी तुमचा विश्वास जिंकला, की बंध विलक्षण गहिरा व टिकाऊ असतो.",
+      career: "संशोधन, विज्ञान, तत्त्वज्ञान, अध्यात्म, विश्लेषण व गतीपेक्षा गहनतेला बक्षीस देणारे कोणतेही क्षेत्र तुमच्या एकाकी, केंद्रित विचारसरणीच्या नैसर्गिक कलाला सामाजिक कमजोरी नव्हे, फायदा बनवते. जलद-गती, लोकांनी भरलेली वातावरणे तुम्हाला इतर बहुतांश अंकांपेक्षा लवकर थकवतात.",
+      money: "पैसा क्वचितच तुमची मुख्य प्रेरणा असतो, आणि तुम्ही तेव्हा सर्वाधिक आनंदी असता जेव्हा तो केवळ तुम्हाला आपल्या आवडीचा पाठलाग करण्याचे स्वातंत्र्य देतो, स्वतःच एक ध्येय बनत नाही. तुम्ही संपत्तीबद्दल आश्चर्यकारकरित्या अलिप्त राहू शकता, जे तुम्हाला लोभापासून वाचवते पण व्यावहारिक अर्थकारणाकडे दुर्लक्ष करवू शकते. एक साधी, स्वयंचलित प्रणाली तुम्हाला योग्य आहे — एकदा उभारा जेणेकरून मन खोल गोष्टींसाठी मोकळे राहील.",
+      growth: "तुमचा जीवन-धडा आहे विश्वास — हे शिकणे की जेव्हा जेव्हा गोष्टी अनिश्चित वाटतात, तेव्हा विश्लेषण व एकांतात मागे हटण्याऐवजी इतरांप्रती व जीवनाप्रती उघडणे. तुमची गहनता ही दुर्मिळ देणगी आहे, पण एकांत एकटेपणात किंवा निराशावादात बदलू शकतो. तुमच्यासाठी विकास म्हणजे श्रद्धा, जोड व काही विश्वासू लोकांना त्या जगात परत येऊ देणे जे तुम्ही अंतरावर ठेवता.",
+    },
+    8: {
+      social: "तुमच्यात नैसर्गिक अधिकार आहे, आणि लोक हे जाणवतात जरी तुम्ही ते थेट व्यक्त करत नसाल — जे तुम्हाला एक मजबूत नेता बनवते पण कधी कधी सामान्य वातावरणात भीतीदायक उपस्थिती देखील. तुमच्यातील शनीची शिस्त नात्यांना गंभीरतेने घेते आणि तुम्ही हलक्यात गुंतवणूक करत नाही.",
+      body: "कॅल्डियन परंपरेत शनीचा भारी प्रभाव अनेकदा हाडे, सांधे किंवा गुडघ्यांशी संबंधित तणावात व काळाबरोबर दीर्घकालीन तणावाच्या संवेदनशीलतेत दिसतो — तुमचे आरोग्य अचानक तीव्र प्रयत्नांपेक्षा स्थिर, शिस्तबद्ध दैनंदिनीवर चांगले प्रतिसाद देते. विश्रांती तुमच्यासाठी चोचला नाही, ती देखभाल आहे.",
+      love: "तुम्ही सतत स्नेह प्रदर्शनाऐवजी वचनबद्धता व सहनशक्तीने प्रेम करता, आणि तुम्ही खरोखर गहिरी गुंतवणूक करत असतानाही दूरचे समजले जाऊ शकता. जो जोडीदार निष्ठा व दीर्घकालीन उभारणीला अल्पकालीन रोमान्सपेक्षा अधिक महत्त्व देतो, तो तुमच्यासाठी सर्वात योग्य आहे.",
+      career: "वित्त, कायदा, मोठ्या प्रमाणातील उद्योग, बांधकाम व खऱ्या अधिकाराची पदे तुमच्या इतर कोणी न उचलू शकणारा भार वाहण्याच्या क्षमतेला बक्षीस देतात. यश अनेकदा इतर अंकांपेक्षा उशिरा व अधिक कष्टाने येते, पण एकदा मिळाल्यावर अधिक टिकाऊ राहते.",
+      money: "तुम्ही दीर्घकालीन संपत्तीसाठी घडलेले आहात — शनी संयम, शिस्त व भक्कम परिणामासाठी दुबळी वर्षे सहन करण्याच्या इच्छेला बक्षीस देतो. पैसा हळू येतो, मग भरपूर. तुमचा धोका म्हणजे एकतर संधी हुकवणारी अति-सावधगिरी, किंवा तुम्ही मुकाट्याने इच्छिता त्या दर्जाच्या पाठलागात अति-कर्ज. स्थिर, शिस्तबद्ध उभारणीतच तुमचे खरे भाग्य घडते.",
+      growth: "तुमचा जीवन-धडा हा आहे की केवळ भौतिक मापाने मोजलेले यश तुम्हाला रिकामे ठेवते. आपली गंभीरता हलकी करणे, विश्व केवळ अडथळे नाही यावर विश्वास ठेवणे, आणि यशापलीकडे अर्थ शोधणे हाच तुमचा सर्वात खोल विकास आहे. आयुष्यात लवकर येणाऱ्या कष्टांतूनच तुमची पुढील शक्ती घडते — जर तुम्ही त्यांना स्वतःला कठोर बनवू दिले नाही तर.",
+    },
+    9: {
+      social: "तुम्ही स्वतःपेक्षा मोठ्या उद्देशांकडे आकर्षित होता, आणि लोक तुमच्याबद्दल आणखी काही लक्षात येण्याआधी तुमची तीव्रता लक्षात घेतात. हीच आग तुम्हाला संकटात नैसर्गिक नेता बनवते, पण जेव्हा तुम्हाला वाटते की अन्याय त्वरित सुधारायचा आहे, तेव्हा ती संघर्षातही बदलू शकते.",
+      body: "मंगळाचा प्रभाव तुम्हाला मजबूत शारीरिक ऊर्जा व जलद चयापचय देतो, पण स्वभावही तापट राहतो — न सुटलेला राग काळाबरोबर सूज, रक्तदाब किंवा अपघातप्रवणतेच्या रूपात समोर येऊ शकतो. त्या ऊर्जेसाठी शारीरिक मार्ग (खेळ, तीव्र व्यायाम) शांत अंकांपेक्षा तुमच्यासाठी अधिक महत्त्वाचे आहेत.",
+      love: "तुम्ही उत्कटतेने व संरक्षणात्मक भावनेने प्रेम करता, कधी कधी इतक्या तीव्रतेने की शांत जोडीदार भारावून जाईल. जी नाती टिकतात ती तीच आहेत जिथे तुमच्या तीव्रतेला समान प्रामाणिकपणाने प्रतिसाद मिळतो, टाळाटाळ किंवा मनधरणीने नाही.",
+      career: "संरक्षण, क्रीडा, शस्त्रक्रिया, अभियांत्रिकी व सामाजिक कार्य — सर्व एकाच गुणाला बक्षीस देतात: जिथे इतर कचरतात तिथे निर्णायकपणे कृती करण्याची इच्छाशक्ती. तुम्ही खऱ्या पैजा व स्पष्ट परिणाम असलेल्या भूमिकांसाठी बनलेले आहात, संथ नोकरशाहीसाठी नाही.",
+      money: "तुम्ही जोश व धैर्याने कमावता — मंगळ धाडसी कृतीला अनुकूल असतो, आणि पैसा अनेकदा इतर घेत नाहीत त्या जोखमींच्या मागे येतो. पण हीच आग आवेगपूर्ण खर्च करवते व गणनेआधी कृती करवते, म्हणून अनपेक्षित लाभ जितक्या वेगाने येतात तितक्याच वेगाने नाहीसे होऊ शकतात. संपत्ती तेव्हा उभी राहते जेव्हा तुम्ही आवेग व खरेदी यांच्यात थांबता, आणि आपली ऊर्जा सिद्ध करण्याऐवजी उभारणीत लावता.",
+      growth: "तुमचा जीवन-धडा आहे आपल्या आगीला दिशा देणे — संघर्षात न बदलता ध्येयांसाठी लढणे, आणि उतावळेपणाशिवाय निर्णायकपणे कृती करणे शिकणे. संयम व क्षमा हे तुमच्यासाठी सर्वात कठीण व सर्वात परिवर्तनकारी धडे आहेत. जेव्हा तुम्ही आपली प्रचंड ऊर्जा रागाऐवजी आपल्या उभारणीकडे वळवायला शिकता, तेव्हा तुम्ही खरोखर अजिंक्य बनता.",
+    },
   },
 };
 
@@ -1475,8 +1975,9 @@ function renderResults() {
   // Compound number & its effect
   renderCompound(compound);
 
-  // Favourability meter, inner numbers, Lucky essentials, Career, life events
+  // Favourability meter, personality/life-path profile, inner numbers, Lucky essentials, Career, life events
   renderFavourMeter(name);
+  renderProfile(single);
   renderInnerNumbers(name);
   renderLucky(single);
   renderCareer(single);
@@ -1525,6 +2026,9 @@ function renderResults() {
   // Kua (Feng Shui) & Lo Shu grid — need DOB
   renderKua();
   renderLoShu();
+
+  // Personal Day / Month / Year cycle — needs DOB
+  renderPersonalCycle();
 
   // Re-evaluate practical / relationship checks against the new name number
   refreshChecks(single);
@@ -1579,6 +2083,29 @@ function renderFavourMeter(name) {
   }).join('');
 }
 
+/** Personality & life-path prediction paragraphs (behaviour/social, body/
+    health, love, career) for the name's root digit. Hand-authored per root
+    number — not blended from DOB — so the reading stays coherent; DOB-driven
+    numbers (Mulank/Bhagyank/Kua) get their own dedicated panels elsewhere. */
+function renderProfile(single) {
+  const dict = t();
+  const profile = PERSONALITY_PROFILES[currentLang][single];
+  if (!profile) return;
+  const TOPICS = [
+    { key: 'social', labelKey: 'profileSocial' },
+    { key: 'body',   labelKey: 'profileBody' },
+    { key: 'love',   labelKey: 'profileLove' },
+    { key: 'career', labelKey: 'profileCareer' },
+    { key: 'money',  labelKey: 'profileMoney' },
+    { key: 'growth', labelKey: 'profileGrowth' },
+  ];
+  $('#profileGrid').innerHTML = TOPICS.map(tp => `
+    <div class="profile-card">
+      <h3 class="profile-card-title">${dict[tp.labelKey]}</h3>
+      <p class="profile-card-text">${profile[tp.key]}</p>
+    </div>`).join('');
+}
+
 /** Inner numbers: Soul Urge (vowels) and Personality (consonants) —
     two genuinely DIFFERENT concepts, shown side by side with meanings. */
 function renderInnerNumbers(name) {
@@ -1624,7 +2151,7 @@ function renderLucky(single) {
   const tiles = [
     { icon:'📅', label: dict.luckyDays,  value: days },
     { icon:'🔢', label: dict.luckyNums,  value: L.numbers.join(', ') },
-    { icon:'📆', label: dict.luckyDates, value: L.numbers.join(', ') },
+    { icon:'📆', label: dict.luckyDates, value: L.numbers.filter(n => n <= 31).join(', ') },
     { icon:'🎨', label: dict.luckyColors, value: `${swatches} ${luckyColors(single)}` },
     { icon:'🕉️', label: dict.luckyGod,   value: luckyGod(single) },
     { icon:'💎', label: dict.luckyMetal, value: luckyMetal(single) },
@@ -1692,6 +2219,18 @@ function renderKua() {
   setAnimated($('#kuaGroup'), `${kuaGroupLabel(info.group)} — ${dirListLabel(info.dirs)}`);
 }
 
+/** Personal Day / Month / Year cycle numbers — needs DOB. Reference date is
+    the real "today", passed in explicitly so it stays testable. */
+function renderPersonalCycle(today = new Date()) {
+  const panel = $('#cyclePanel');
+  const cycle = personalCycleNumbers(lastDob, today);
+  if (!cycle) { panel.hidden = true; return; }
+  panel.hidden = false;
+  setAnimated($('#cycleDayValue'), cycle.personalDay);
+  setAnimated($('#cycleMonthValue'), cycle.personalMonth);
+  setAnimated($('#cycleYearValue'), cycle.personalYear);
+}
+
 /** Lo Shu grid, missing numbers and planes formed — needs DOB. */
 function renderLoShu() {
   const dict = t();
@@ -1754,12 +2293,65 @@ function evalCheck(inputEl, verdictEl, nameSingle) {
   verdictEl.className = 'check-verdict is-' + rel;
 }
 
-/** Re-run all four practical/relationship checks. */
+/** The number this session should personalise Mobile/Vehicle checks against:
+    prefer the entered Name Number, fall back to Mulank (birth day) if only a
+    DOB was given, or null if neither is available yet. */
+function personalAnchorSingle() {
+  if (letterBreakdown(lastName).length) return calculate(lastName).single;
+  const dob = calcDob(lastDob);
+  return dob ? dob.mulank : null;
+}
+
+/** Classify a mobile/vehicle root digit. When a personal anchor (Name Number
+    or Mulank) is available, compare the two via the same friendship matrix
+    used everywhere else on the site (relation()) — a number is only
+    "favourable" if it's actually in harmony with *you*, not on some absolute
+    scale. Without an anchor yet, fall back to the number's own traditional
+    strength (FAVOUR_PCT) so the field still gives useful feedback. */
+function numCheckClass(single, anchor) {
+  if (anchor) return relation(anchor, single);
+  const pct = FAVOUR_PCT[single] || 50;
+  if (pct >= 80) return 'good';
+  if (pct < 60) return 'warn';
+  return 'neutral';
+}
+
+/** Render the Mobile Number / Vehicle Number checks. Personalises against the
+    user's Name Number (or Mulank) when available AND the card's "Personalise"
+    checkbox is on (checked by default); otherwise scores the number on its
+    own traditional strength. */
+function renderNumCheck(inputEl, resultEl, toggleEl, calcFn, resultLabelKey) {
+  const dict = t();
+  const val = inputEl.value.trim();
+  if (!val) { resultEl.textContent = dict.numCheckEmpty; resultEl.className = 'numcheck-result'; return; }
+  const r = calcFn(val);
+  if (!r) { resultEl.textContent = dict.numCheckEmpty; resultEl.className = 'numcheck-result'; return; }
+
+  const wantsPersonal = !toggleEl || toggleEl.checked;
+  const anchor = wantsPersonal ? personalAnchorSingle() : null;
+  const cls = numCheckClass(r.single, anchor);
+  const verdict = cls === 'good' ? dict.numCheckFav : cls === 'warn' ? dict.numCheckWarn : dict.numCheckNeutral;
+  const planet = PLANET_NAMES[currentLang][r.single];
+  const note = anchor ? ` — ${dict.numCheckVsYours.replace('{y}', anchor)}`
+             : wantsPersonal ? ` — ${dict.numCheckNeedAnchor}`
+             : '';
+  resultEl.innerHTML = `<span class="nc-num">${r.single}</span>${dict[resultLabelKey]} <strong>${r.single}</strong> (${planet}) — ${verdict}${note}`;
+  resultEl.className = 'numcheck-result is-' + cls;
+}
+
+function refreshNumChecks() {
+  renderNumCheck($('#mobileCheck'), $('#mobileResult'), $('#mobilePersonalize'), calculateMobile, 'mobileResultLabel');
+  renderNumCheck($('#vehicleCheck'), $('#vehicleResult'), $('#vehiclePersonalize'), calculateVehicle, 'vehicleResultLabel');
+}
+
+/** Re-run all practical/relationship checks. */
 function refreshChecks(nameSingle) {
-  evalCheck($('#emailCheck'),   $('#emailVerdict'),   nameSingle);
-  evalCheck($('#bankCheck'),    $('#bankVerdict'),    nameSingle);
-  evalCheck($('#partnerCheck'), $('#partnerVerdict'), nameSingle);
-  evalCheck($('#friendCheck'),  $('#friendVerdict'),  nameSingle);
+  evalCheck($('#emailCheck'),    $('#emailVerdict'),    nameSingle);
+  evalCheck($('#bankCheck'),     $('#bankVerdict'),     nameSingle);
+  evalCheck($('#socialCheck'),   $('#socialVerdict'),   nameSingle);
+  evalCheck($('#businessCheck'), $('#businessVerdict'), nameSingle);
+  evalCheck($('#partnerCheck'),  $('#partnerVerdict'),  nameSingle);
+  evalCheck($('#friendCheck'),   $('#friendVerdict'),   nameSingle);
 }
 
 /** Render lucky Indian/Hindu baby name ideas for the chosen gender. */
@@ -1768,7 +2360,14 @@ function renderIndianNames() {
   if (!box) return;
   const names = favourableIndianNames(indianGender, 8, indianOffset);
   box.innerHTML = names.map(n => `
-    <span class="suggest-chip">${n.name}<span class="sc-num">${n.compound}/${n.single}</span></span>`).join('');
+    <div class="iname-card">
+      <div class="iname-head">
+        <span class="iname-name">${n.name}</span>
+        <span class="sc-num">${n.compound}/${n.single}</span>
+      </div>
+      <p class="iname-meaning">${n.meaning}</p>
+      <span class="iname-source">${n.source}</span>
+    </div>`).join('');
 }
 
 /** Render the birth-number panel and the friendship checks. */
@@ -1832,6 +2431,11 @@ function liveUpdate() {
   lastName = $('#nameInput').value;
   lastDob = readDob();
 
+  // Mobile/Vehicle checks are personalised against the Name Number (or
+  // Mulank if only a DOB is given), so they must refresh here too — even
+  // when there's no name yet, DOB alone can still supply that anchor.
+  refreshNumChecks();
+
   if (!letterBreakdown(lastName).length) {
     // No name yet: hide name-driven results, but still hide DOB too.
     $('#results').hidden = true;
@@ -1842,9 +2446,11 @@ function liveUpdate() {
 
 function doClear() {
   ['#nameInput', '#dobDay', '#dobMonth', '#dobYear',
-   '#placeInput', '#emailCheck', '#bankCheck', '#partnerCheck', '#friendCheck']
+   '#placeInput', '#emailCheck', '#bankCheck', '#socialCheck', '#businessCheck',
+   '#partnerCheck', '#friendCheck']
     .forEach(sel => { const el = $(sel); if (el) el.value = ''; });
-  ['#emailVerdict', '#bankVerdict', '#partnerVerdict', '#friendVerdict']
+  ['#emailVerdict', '#bankVerdict', '#socialVerdict', '#businessVerdict',
+   '#partnerVerdict', '#friendVerdict']
     .forEach(sel => { const el = $(sel); if (el) { el.textContent = ''; el.className = 'check-verdict'; } });
   lastName = '';
   lastDob = '';
@@ -1852,6 +2458,10 @@ function doClear() {
   $('#dobPanel').hidden = true;
   $('#placeResults').hidden = true;
   $('#nameInput').focus();
+  // Mobile/Vehicle inputs themselves are left as-is (Clear only resets the
+  // name/DOB calculator above), but their personalisation anchor just
+  // disappeared, so re-render to fall back to the un-personalised verdict.
+  refreshNumChecks();
 }
 
 /** Current name's root digit (or 0 if no valid name). */
@@ -1877,8 +2487,9 @@ function populateDobSelects() {
   dict.months.forEach((name, i) => { mHtml += `<option value="${pad(i + 1)}">${name}</option>`; });
   month.innerHTML = mHtml;
 
+  const maxYear = new Date().getFullYear();
   let yHtml = `<option value="">${dict.yearLabel}</option>`;
-  for (let y = 2026; y >= 1920; y--) yHtml += `<option value="${y}">${y}</option>`;
+  for (let y = maxYear; y >= 1920; y--) yHtml += `<option value="${y}">${y}</option>`;
   year.innerHTML = yHtml;
 
   day.value = keep.d; month.value = keep.m; year.value = keep.y;
@@ -1896,6 +2507,7 @@ function setLanguage(lang, animate = true) {
     renderMeaningsReference();
     renderSteps();
     if (lastName) renderResults();
+    refreshNumChecks(); // mobile/vehicle results show translated text
   };
 
   // Smooth cross-fade: fade out → swap text → fade back in.
@@ -2020,12 +2632,53 @@ async function downloadReportPdf() {
   results.classList.add('pdf-capture');
 
   try {
+    // Measure "atomic" UI blocks (cards/tiles/rows/chips/headings) in the live
+    // DOM *before* rasterising, so the pagination loop below can detect when a
+    // page-cut would land inside one and shift the whole block to the next
+    // page instead of slicing through it.
+    const protectSelector = '.stat-card, .calc-card, .inner-card, .lucky-tile, ' +
+      '.remedy-tile, .meaning-card, .compat-row, .loshu-cell, .plane-chip, ' +
+      '.letter-chip, .suggest-chip, .chart-cell, .panel-title, .iname-card, .profile-card';
+    const containerTop = results.getBoundingClientRect().top;
+    // A heading only needs a small cushion of its own following content glued
+    // to it (so it isn't left alone at the bottom of a page) — NOT the whole
+    // panel body, otherwise every tile/row inside that panel would chain-merge
+    // into one giant block that can never fit on a page and gets sliced anyway.
+    const HEADING_CUSHION_PX = 48;
+    const rawRanges = Array.from(results.querySelectorAll(protectSelector)).map(el => {
+      const r = el.getBoundingClientRect();
+      let top = r.top - containerTop;
+      let bottom = r.bottom - containerTop;
+      if (el.classList.contains('panel-title')) {
+        bottom += HEADING_CUSHION_PX;
+      }
+      return { top, bottom };
+    }).filter(r => r.bottom > r.top).sort((a, b) => a.top - b.top);
+    // Merge overlapping/adjacent ranges into single spans, but never past a
+    // page's worth of content — an oversized merged range would force a
+    // pull-back that can't succeed and defeats the purpose.
+    const MAX_MERGED_PX = 1300; // generous cap; real per-page limit is enforced later against actual page height
+    const protectedRanges = [];
+    for (const r of rawRanges) {
+      const last = protectedRanges[protectedRanges.length - 1];
+      if (last && r.top <= last.bottom + 1 && (Math.max(last.bottom, r.bottom) - last.top) <= MAX_MERGED_PX) {
+        last.bottom = Math.max(last.bottom, r.bottom);
+      } else {
+        protectedRanges.push({ ...r });
+      }
+    }
+    const preCaptureHeight = results.scrollHeight;
+
     const canvas = await window.html2canvas(results, {
       backgroundColor: '#ffffff',
       scale: 2,                       // crisp text
       useCORS: true,
       windowWidth: results.scrollWidth,
     });
+    // Canvas px per CSS px, derived from the actual capture (robust to any
+    // internal rounding html2canvas applies), used to map the ranges above
+    // from CSS coordinates into canvas-pixel coordinates.
+    const scaleY = canvas.height / preCaptureHeight;
 
     const pdf = new jsPDFCtor({ unit: 'pt', format: 'a4' });
     const pageW = pdf.internal.pageSize.getWidth();
@@ -2080,8 +2733,27 @@ async function downloadReportPdf() {
 
     while (remaining > 0) {
       const avail = (firstPage ? pageH - topOffset - margin : pageH - margin * 2);
-      const sliceHpt = Math.min(avail, remaining);
-      const sliceHpx = sliceHpt * pxPerPt;
+      let sliceHpt = Math.min(avail, remaining);
+      let sliceHpx = sliceHpt * pxPerPt;
+
+      // If this cut lands inside a protected block (a card/tile/row/chip),
+      // pull the cut back to the top of that block so the whole block moves
+      // to the next page instead of being sliced in half.
+      if (sliceHpt < remaining) {
+        const cutY = sy + sliceHpx;
+        for (const r of protectedRanges) {
+          const rTop = r.top * scaleY, rBottom = r.bottom * scaleY;
+          if (rTop > sy && rTop < cutY && cutY < rBottom) {
+            const pulledHpx = rTop - sy;
+            const pulledHpt = pulledHpx / pxPerPt;
+            // Only pull back if a meaningful amount of content still fits on
+            // this page — otherwise leave the cut as-is rather than emit a
+            // near-empty page (e.g. a single block taller than one page).
+            if (pulledHpt > 40) { sliceHpt = pulledHpt; sliceHpx = pulledHpx; }
+            break;
+          }
+        }
+      }
 
       // Draw this slice onto an intermediate canvas (white background)
       const slice = document.createElement('canvas');
@@ -2114,6 +2786,148 @@ async function downloadReportPdf() {
     alert('Sorry — the PDF could not be generated in this browser.');
   } finally {
     results.classList.remove('pdf-capture');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+/** Draw a branded, shareable 1080×1350 result card (portrait — fits
+    Instagram/WhatsApp status) and trigger a PNG download. Pure Canvas 2D
+    drawing (no html2canvas needed) so the card layout is fully controlled
+    and identical across browsers/devices. Also copies a ready-to-paste
+    caption (with the site URL) to the clipboard so sharing takes one paste. */
+async function shareReport() {
+  const dict = t();
+  const btn = $('#shareBtn');
+  const name = lastName.trim();
+  if (!letterBreakdown(name).length) return;
+
+  const { single } = calculate(name);
+  const { pct } = favourability(name);
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = dict.shareBuilding;
+
+  try {
+    const W = 1080, H = 1350;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Background — matches the site's dark celestial gradient.
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#2a1a4a');
+    bg.addColorStop(0.55, '#241243');
+    bg.addColorStop(1, '#160a2e');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soft scattered stars.
+    ctx.fillStyle = 'rgba(245, 196, 81, 0.55)';
+    const starSeedPts = [[110, 130], [940, 170], [890, 1220], [140, 1180], [980, 640], [90, 700]];
+    starSeedPts.forEach(([sx, sy]) => {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const a = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+        const r = i % 2 === 0 ? 14 : 6;
+        const px = sx + Math.cos(a) * r, py = sy + Math.sin(a) * r;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Brand mark.
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f5c451';
+    ctx.font = "600 46px Georgia, 'Times New Roman', serif";
+    ctx.fillText('✦ ' + (dict.brandName || 'NameVibe'), W / 2, 130);
+
+    // Glowing core with the root number.
+    const cx = W / 2, cy = 430, r = 150;
+    const glow = ctx.createRadialGradient(cx, cy - 20, 10, cx, cy, r);
+    glow.addColorStop(0, '#fff6df');
+    glow.addColorStop(0.6, '#ffe9a8');
+    glow.addColorStop(1, '#f5c451');
+    ctx.beginPath();
+    ctx.fillStyle = glow;
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.fillStyle = '#2a1a4a';
+    ctx.font = '800 150px Arial, Helvetica, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(single), cx, cy + 10);
+    ctx.textBaseline = 'alphabetic';
+
+    // Name.
+    ctx.fillStyle = '#ffffff';
+    ctx.font = "700 54px Georgia, 'Times New Roman', serif";
+    const displayName = name.length > 24 ? name.slice(0, 22) + '…' : name;
+    ctx.fillText(displayName, W / 2, 660);
+
+    // "Name Number" label.
+    ctx.fillStyle = '#c9bce8';
+    ctx.font = '30px Arial, Helvetica, sans-serif';
+    ctx.fillText((dict.singleLabel || 'Name Number').toUpperCase(), W / 2, 705);
+
+    // Favourability pill.
+    const pillW = 420, pillH = 84, pillY = 770;
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    const rx = W / 2 - pillW / 2, ry = pillY, rw = pillW, rh = pillH, rr = rh / 2;
+    ctx.moveTo(rx + rr, ry);
+    ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, rr);
+    ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, rr);
+    ctx.arcTo(rx, ry + rh, rx, ry, rr);
+    ctx.arcTo(rx, ry, rx + rw, ry, rr);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f5c451';
+    ctx.font = '800 40px Arial, Helvetica, sans-serif';
+    ctx.fillText(`${pct}% ${dict.favGood}`, W / 2, pillY + 54);
+
+    // Ruling planet + meaning headline.
+    const planet = PLANET_NAMES[currentLang][single];
+    const meaning = (NUMBER_MEANINGS[currentLang][single] || [''])[0];
+    ctx.fillStyle = '#a98bff';
+    ctx.font = '600 32px Arial, Helvetica, sans-serif';
+    ctx.fillText(`${planet} · ${meaning}`, W / 2, 920);
+
+    // Footer credit + CTA.
+    ctx.fillStyle = '#8f82b8';
+    ctx.font = '26px Arial, Helvetica, sans-serif';
+    ctx.fillText('Free Chaldean Numerology Calculator', W / 2, 1220);
+    ctx.fillStyle = '#c9bce8';
+    ctx.font = '600 30px Arial, Helvetica, sans-serif';
+    ctx.fillText('Find your report free — search "NameVibe"', W / 2, 1270);
+    ctx.fillStyle = '#6b5f96';
+    ctx.font = '24px Arial, Helvetica, sans-serif';
+    ctx.fillText('by Amol Gadage', W / 2, 1310);
+
+    // Download the card.
+    const safe = (name || 'numerology').replace(/[^a-z0-9]+/gi, '_');
+    const link = document.createElement('a');
+    link.download = `${safe}_namevibe_report.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    // Copy a ready-to-paste caption alongside the image.
+    const shareUrl = (document.querySelector('link[rel="canonical"]') || {}).href || window.location.href;
+    const caption = dict.shareCaption(name, single, pct).replace('{url}', shareUrl);
+    try {
+      await navigator.clipboard.writeText(caption);
+      alert(dict.shareCopied);
+    } catch (e) {
+      // Clipboard API unavailable (older browser / permissions) — the image
+      // still downloaded, so degrade gracefully without blocking the user.
+    }
+  } catch (err) {
+    alert('Sorry — the share card could not be generated in this browser.');
+  } finally {
     btn.disabled = false;
     btn.textContent = original;
   }
@@ -2321,8 +3135,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Practical & relationship checkers — re-evaluate live against the current name.
-  ['#emailCheck', '#bankCheck', '#partnerCheck', '#friendCheck'].forEach(sel =>
+  ['#emailCheck', '#bankCheck', '#socialCheck', '#businessCheck', '#partnerCheck', '#friendCheck'].forEach(sel =>
     $(sel).addEventListener('input', () => refreshChecks(currentNameSingle())));
+
+  // Mobile / Vehicle number numerology — personalised against name/DOB by
+  // default; each card's checkbox lets the user opt into a standalone score.
+  ['#mobileCheck', '#vehicleCheck', '#mobilePersonalize', '#vehiclePersonalize'].forEach(sel =>
+    $(sel).addEventListener('input', refreshNumChecks));
+  refreshNumChecks(); // show the "enter a number" placeholder state immediately
 
   // Birth-place autocomplete (OpenStreetMap Nominatim — free, no key)
   initPlaceAutocomplete();
@@ -2330,6 +3150,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // PDF report download
   const pdfBtn = $('#pdfBtn');
   if (pdfBtn) pdfBtn.addEventListener('click', downloadReportPdf);
+
+  // Shareable result card (image + caption)
+  const shareBtn = $('#shareBtn');
+  if (shareBtn) shareBtn.addEventListener('click', shareReport);
 
   initHeaderScroll();
 

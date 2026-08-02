@@ -6,39 +6,38 @@
   <meta name="theme-color" content="#2a1a4a" />
 
   <!-- ===================== SEO ===================== -->
-  <!-- NOTE: replace the token YOUR-USERNAME.github.io/namevibe with your
-       real GitHub Pages (or custom-domain) URL in this file, robots.txt and sitemap.xml. -->
+  <!-- Live URL: https://amolgadge663.github.io/NameVibe/ (also set in robots.txt and sitemap.xml). -->
   <title>NameVibe — Chaldean Numerology Name Calculator (Free): Name Number, Lucky Numbers &amp; Remedies</title>
   <meta name="description" content="Free Chaldean numerology name calculator. Instantly find your name number, compound &amp; root (single) digit, ruling planet, lucky numbers, colours, days, Mulank, Bhagyank, Kua number, Lo Shu grid and personalised remedies for money, career, health, marriage &amp; love — in English, Hindi and Marathi." />
   <meta name="keywords" content="Chaldean numerology, numerology calculator, name numerology, name number calculator, lucky number, lucky name, Mulank, Bhagyank, Kua number, Lo Shu grid, numerology remedies, compound number, root number, numerology in Hindi, numerology in Marathi, Amol Gadage" />
   <meta name="author" content="Amol Gadage" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <meta name="googlebot" content="index, follow" />
-  <link rel="canonical" href="https://YOUR-USERNAME.github.io/namevibe/" />
+  <link rel="canonical" href="https://amolgadge663.github.io/NameVibe/" />
 
   <!-- Open Graph (Facebook / WhatsApp / LinkedIn) -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="NameVibe" />
   <meta property="og:title" content="Chaldean Numerology Name Calculator (Free) — Name Number, Lucky Numbers &amp; Remedies" />
   <meta property="og:description" content="Find your name number, compound &amp; root digit, ruling planet, lucky numbers, Mulank, Bhagyank, Kua, Lo Shu grid and personalised remedies — in English, Hindi and Marathi." />
-  <meta property="og:url" content="https://YOUR-USERNAME.github.io/namevibe/" />
+  <meta property="og:url" content="https://amolgadge663.github.io/NameVibe/" />
   <meta property="og:locale" content="en_IN" />
   <meta property="og:locale:alternate" content="hi_IN" />
   <meta property="og:locale:alternate" content="mr_IN" />
-  <meta property="og:image" content="https://YOUR-USERNAME.github.io/namevibe/og-image.svg" />
+  <meta property="og:image" content="https://amolgadge663.github.io/NameVibe/og-image.svg" />
   <meta property="og:image:alt" content="NameVibe — Chaldean Numerology Name Calculator by Amol Gadage" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Chaldean Numerology Name Calculator (Free)" />
   <meta name="twitter:description" content="Name number, lucky numbers, Mulank, Bhagyank, Kua, Lo Shu grid &amp; personalised remedies — in English, Hindi and Marathi." />
-  <meta name="twitter:image" content="https://YOUR-USERNAME.github.io/namevibe/og-image.svg" />
+  <meta name="twitter:image" content="https://amolgadge663.github.io/NameVibe/og-image.svg" />
 
   <!-- hreflang: one page serves all three languages via the in-page switch -->
-  <link rel="alternate" hreflang="en" href="https://YOUR-USERNAME.github.io/namevibe/" />
-  <link rel="alternate" hreflang="hi" href="https://YOUR-USERNAME.github.io/namevibe/" />
-  <link rel="alternate" hreflang="mr" href="https://YOUR-USERNAME.github.io/namevibe/" />
-  <link rel="alternate" hreflang="x-default" href="https://YOUR-USERNAME.github.io/namevibe/" />
+  <link rel="alternate" hreflang="en" href="https://amolgadge663.github.io/NameVibe/" />
+  <link rel="alternate" hreflang="hi" href="https://amolgadge663.github.io/NameVibe/" />
+  <link rel="alternate" hreflang="mr" href="https://amolgadge663.github.io/NameVibe/" />
+  <link rel="alternate" hreflang="x-default" href="https://amolgadge663.github.io/NameVibe/" />
 
   <!-- Structured data: WebApplication + Author + FAQ (rich results) -->
   <script type="application/ld+json">
@@ -49,7 +48,7 @@
         "@type": "WebApplication",
         "name": "NameVibe — Chaldean Numerology Name Calculator",
         "alternateName": "NameVibe",
-        "url": "https://YOUR-USERNAME.github.io/namevibe/",
+        "url": "https://amolgadge663.github.io/NameVibe/",
         "applicationCategory": "LifestyleApplication",
         "operatingSystem": "Any (web browser)",
         "inLanguage": ["en", "hi", "mr"],
@@ -202,6 +201,7 @@
 
         <div class="results-actions" data-html2canvas-ignore="true">
           <button id="pdfBtn" class="btn btn-primary btn-pdf" type="button" data-i18n="downloadPdf">⬇ Download PDF Report</button>
+          <button id="shareBtn" class="btn btn-ghost btn-share" type="button" data-i18n="shareBtn">📤 Share My Report</button>
         </div>
 
         <div class="result-grid">
@@ -262,6 +262,13 @@
           <ul class="favor-factors" id="favorFactors"></ul>
         </div>
 
+        <!-- Personality & life-path prediction (behaviour, health, love, career) -->
+        <div class="panel panel--profile">
+          <h2 class="panel-title" data-i18n="profileTitle">Your Personality &amp; Life Path</h2>
+          <p class="panel-sub" data-i18n="profileIntro">A closer look at how your name number tends to shape behaviour and social connection, physical/health tendencies, love life and career path.</p>
+          <div class="profile-grid" id="profileGrid"></div>
+        </div>
+
         <!-- Inner numbers: Soul Urge (vowels) + Personality (consonants) -->
         <div class="panel panel--soul" id="soulPanel" hidden>
           <h2 class="panel-title" data-i18n="soulTitle">Your Inner Numbers</h2>
@@ -302,6 +309,16 @@
                    data-i18n-attr="placeholder:bankPlaceholder" placeholder="Bank / company name" />
             <span class="check-verdict" id="bankVerdict"></span>
           </div>
+          <div class="check-row">
+            <input id="socialCheck" type="text" class="name-input" autocomplete="off"
+                   data-i18n-attr="placeholder:socialPlaceholder" placeholder="Social media username / handle (e.g. @amol.gadage)" />
+            <span class="check-verdict" id="socialVerdict"></span>
+          </div>
+          <div class="check-row">
+            <input id="businessCheck" type="text" class="name-input" autocomplete="off"
+                   data-i18n-attr="placeholder:businessPlaceholder" placeholder="Business / brand name" />
+            <span class="check-verdict" id="businessVerdict"></span>
+          </div>
         </div>
 
         <!-- Relationship compatibility: marriage partner & friend -->
@@ -340,6 +357,26 @@
           <div class="effect-block" id="bhagyankEffect"></div>
 
           <div class="compat-list" id="compatList"></div>
+        </div>
+
+        <!-- Personal Day / Month / Year cycle numbers -->
+        <div class="panel panel--cycle" id="cyclePanel" hidden>
+          <h2 class="panel-title" data-i18n="cycleTitle">📆 Your Personal Day, Month &amp; Year Numbers</h2>
+          <p class="panel-sub" data-i18n="cycleIntro">Short-term cycles layered on your lifelong numbers — what today, this month and this year favour for you.</p>
+          <div class="result-grid result-grid--three">
+            <div class="stat-card">
+              <span class="stat-label" data-i18n="cycleDayLabel">Personal Day</span>
+              <span class="stat-value" id="cycleDayValue">—</span>
+            </div>
+            <div class="stat-card stat-card--accent">
+              <span class="stat-label" data-i18n="cycleMonthLabel">Personal Month</span>
+              <span class="stat-value" id="cycleMonthValue">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label" data-i18n="cycleYearLabel">Personal Year</span>
+              <span class="stat-value" id="cycleYearValue">—</span>
+            </div>
+          </div>
         </div>
 
         <!-- Kua number (Feng Shui) -->
@@ -416,9 +453,44 @@
             <button class="gender-btn iname-btn" data-gender="girl" type="button" data-i18n="genderGirl">Girls</button>
             <button class="btn-refresh" id="refreshNames" type="button" data-i18n="moreNames">↻ More</button>
           </div>
-          <div id="indianNames" class="suggestions"></div>
+          <div id="indianNames" class="iname-grid"></div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ===================== MOBILE & VEHICLE NUMBER NUMEROLOGY ===================== -->
+    <section class="numcheck-section">
+      <div class="container">
+        <div class="numcheck-grid">
+          <div class="numcheck-card" role="region" aria-label="Mobile number numerology">
+            <h2 class="panel-title" data-i18n="mobileTitle">📱 Mobile Number Numerology</h2>
+            <p class="panel-sub" data-i18n="mobileIntro">Check whether your mobile number is numerologically favourable. Every digit is added and reduced to a single number (1–9).</p>
+            <div class="input-row">
+              <input id="mobileCheck" type="text" class="name-input" autocomplete="off" inputmode="tel"
+                     data-i18n-attr="placeholder:mobilePlaceholder" placeholder="Enter mobile number (e.g. +91 98765 43210)" />
+            </div>
+            <label class="numcheck-toggle">
+              <input id="mobilePersonalize" type="checkbox" checked />
+              <span data-i18n="personalizeToggle">Personalise using my name/DOB above</span>
+            </label>
+            <div class="numcheck-result" id="mobileResult"></div>
+          </div>
+
+          <div class="numcheck-card" role="region" aria-label="Vehicle number plate numerology">
+            <h2 class="panel-title" data-i18n="vehicleTitle">🚗 Vehicle Number Plate Numerology</h2>
+            <p class="panel-sub" data-i18n="vehicleIntro">Check whether your vehicle registration number is favourable — letters (Chaldean value) plus digits are combined and reduced.</p>
+            <div class="input-row">
+              <input id="vehicleCheck" type="text" class="name-input" autocomplete="off"
+                     data-i18n-attr="placeholder:vehiclePlaceholder" placeholder="Enter registration number (e.g. MH12AB1234)" />
+            </div>
+            <label class="numcheck-toggle">
+              <input id="vehiclePersonalize" type="checkbox" checked />
+              <span data-i18n="personalizeToggle">Personalise using my name/DOB above</span>
+            </label>
+            <div class="numcheck-result" id="vehicleResult"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -472,7 +544,7 @@
       <!-- ===================== FOLLOW US ===================== -->
       <p class="follow-title" data-i18n="followUs">Follow us</p>
       <nav class="social-bar" aria-label="Follow us on social media">
-        <a class="social-btn social-btn--fb" href="https://www.facebook.com/amolsoftwares" target="_blank" rel="noopener noreferrer" aria-label="Facebook — AmolSoftwares" title="Facebook — AmolSoftwares">
+        <a class="social-btn social-btn--fb" href="https://www.facebook.com/OfficialAmolGadge" target="_blank" rel="noopener noreferrer" aria-label="Facebook — OfficialAmolGadge" title="Facebook — OfficialAmolGadge">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.9h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94z"/></svg>
         </a>
         <a class="social-btn social-btn--ig" href="https://www.instagram.com/AmolSoftwares" target="_blank" rel="noopener noreferrer" aria-label="Instagram — AmolSoftwares" title="Instagram — AmolSoftwares">
@@ -490,7 +562,7 @@
         <a class="social-btn social-btn--web" href="https://www.amolsoftwares.com" target="_blank" rel="noopener noreferrer" aria-label="Website — amolsoftwares.com" title="Website — amolsoftwares.com">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm6.93 6h-2.95a15.6 15.6 0 00-1.38-3.56A8.03 8.03 0 0118.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.96 7.96 0 010-4h3.38a16.5 16.5 0 000 4H4.26zm.81 2h2.95c.35 1.28.82 2.5 1.38 3.56A8.03 8.03 0 015.07 16zm2.95-8H5.07a8.03 8.03 0 014.33-3.56A15.6 15.6 0 008.02 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66a14.7 14.7 0 010-4h4.68a14.7 14.7 0 010 4zm.28 5.56c.56-1.06 1.03-2.28 1.38-3.56h2.95a8.03 8.03 0 01-4.33 3.56zM16.36 14a16.5 16.5 0 000-4h3.38a7.96 7.96 0 010 4h-3.38z"/></svg>
         </a>
-        <a class="social-btn social-btn--blog" href="https://www.amolsoftwares.blogspot.com" target="_blank" rel="noopener noreferrer" aria-label="Blog — amolsoftwares.blogspot.com" title="Blog — amolsoftwares.blogspot.com">
+        <a class="social-btn social-btn--blog" href="https://amolsoftwares.blogspot.com" target="_blank" rel="noopener noreferrer" aria-label="Blog — amolsoftwares.blogspot.com" title="Blog — amolsoftwares.blogspot.com">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 3h11l5 5v13a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1zm10 1.5V8h3.5L14 4.5zM7 11a1 1 0 100 2h10a1 1 0 100-2H7zm0 4a1 1 0 100 2h7a1 1 0 100-2H7z"/></svg>
         </a>
       </nav>

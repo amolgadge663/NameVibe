@@ -15,6 +15,7 @@ Available in **English**, **हिंदी (Hindi)** and **मराठी (Mar
 - **Compound + single digit** — shows the full total and its digit-by-digit reduction to a root number (1–9).
 - **Compound number meaning** — the classic Cheiro/Chaldean compound-number interpretations (10–52), each flagged *fortunate* or *caution*, explaining the deeper hidden influence behind a name.
 - **Favourability meter (explainable)** — an animated percentage bar *plus* a transparent breakdown showing exactly how the score was reached (root-number strength + fortunate/caution compound bonus + harmony between the inner numbers), so it is never a black-box figure.
+- **Personality & life-path profile** — six hand-written paragraphs per name root number covering **behaviour & social connection 🤝**, **body & health tendencies 🧘**, **love life 💞**, **career path 💼**, **money & wealth mindset 💰** and **life lessons & growth 🌱**, translated in full in all three languages.
 - **Inner numbers — Soul Urge & Personality** — two genuinely different, complementary numbers shown side by side: the **Soul Urge / Heart's Desire** (from the *vowels*) is the inner craving; the **Personality number** (from the *consonants*) is the outer impression you make on others.
 - **Lucky essentials** — lucky days, numbers, dates, colours (with live swatches), presiding deity, gemstone/metal, **lucky plant / tree**, favourable direction, and **lucky world cities** split into places that favour a thriving **career** and places that favour **long, peaceful living**.
 - **Best life events & important dates** — the turning-point ages/years for each root number and the kind of event most likely to shine then.
@@ -22,13 +23,17 @@ Available in **English**, **हिंदी (Hindi)** and **मराठी (Mar
 - **Kua number (Feng Shui)** — a **gender-dependent, era-correct** calculation (`10 − yr` / `5 + yr` for pre-2000 births; `9 − yr` / `6 + yr` for 2000 onward, with the traditional 5→2/8 substitution), plus the auspicious East/West group and lucky directions.
 - **Lo Shu grid & planes** — a 3×3 grid built from the date of birth, showing repeated/missing numbers and how many **planes** (complete rows, columns or diagonals) are formed, **with practical remedies** for how to add and strengthen each missing number.
 - **Downloadable PDF report** — one click exports the full reading and all suggestions to a clean, multi-page PDF. It re-themes the result to a **print-friendly light palette** during capture (crisp colours instead of the dark screen theme), preserves Hindi/Marathi and colour swatches, adds a first-page title, and stamps a soft diagonal **"AmolSoftware's · Amol Gadage"** watermark on every page.
-- **Favourable choices checker** — live-checks whether an **email ID**, **bank/company name** or any word harmonises with your number.
+- **Favourable choices checker** — live-checks whether an **email ID**, **social media username/handle**, **business/brand name**, **bank/company name** or any word harmonises with your number.
 - **Relationship compatibility** — enter a **marriage partner's** or **friend's** name to see how their number matches yours.
+- **Mobile Number numerology** — a standalone checker (works without entering a name): every digit of your mobile number is added and reduced to a root digit (1–9), with its ruling planet and a favourable/neutral/testing verdict.
+- **Vehicle Number Plate numerology** — a standalone checker: the plate's letters (Chaldean value) plus its digits are combined and reduced to a root digit, so you can check a registration number before you finalise it.
+- **Personal Day / Month / Year numbers** — short-term numerology cycles layered on top of your lifelong Mulank/Bhagyank, computed from your date of birth and today's date, so the reading feels fresh on every visit.
+- **Shareable result card** — one click renders a branded, portrait share image (name, root number, favourability %) and downloads it, while a ready-to-paste caption — with a link back to the site — is copied to your clipboard for WhatsApp/Instagram/Facebook.
 - **Career guidance** — favourable career fields for each root number.
 - **Gender selector** — a male/female switch that drives the Kua calculation and tailors the baby-name suggestions.
 - **Birth place (optional)** — free autocomplete powered by **OpenStreetMap Nominatim** (no API key needed).
 - **Mulank & Bhagyank effects** — each birth number's meaning shown inline, plus its ruling planet.
-- **Lucky Indian baby-name ideas** — auspicious Hindu names (boys/girls) whose Chaldean root is favourable, with a "More" button for fresh sets.
+- **Lucky Indian baby-name ideas** — 100+ auspicious Hindu names (boys/girls) whose Chaldean root is favourable, each with a short meaning (translated in all three languages) and its textual source — Rigveda, Upanishads, Puranas, the Ramayana/Mahabharata, or general Sanskrit — with a "More" button for fresh sets.
 - **Letter-by-letter breakdown** — see exactly how each letter contributes.
 - **Date of birth (optional)** — computes **Mulank** (birth number) and **Bhagyank** (destiny number).
 - **Compatibility check** — tells you whether your **Name number**, **Mulank** and **Bhagyank** are *Friendly / Neutral / Not Friendly* with each other, using the numerology friendship matrix.
@@ -145,6 +150,22 @@ The result is reduced to 1–9; a Kua of **5** is replaced by **2** (male) or **
 
 Every digit of the date of birth is placed into a fixed 3×3 grid. Repeated digits strengthen a trait; absent digits mark areas to develop. When a full row, column or diagonal is present, a **plane** (e.g. the Mind, Practical or Will plane) is formed — the site counts and names each one.
 
+### Mobile Number numerology
+
+Every digit of the phone number (formatting characters like `+`, spaces and dashes are ignored) is added together and reduced to a single root digit (1–9), then compared against the same traditional strength scale (`FAVOUR_PCT`) used for the favourability meter.
+
+### Vehicle Number Plate numerology
+
+The plate's **letters** are converted with the same Chaldean chart used for names, and its **digits** are summed at face value; the two sums are added together and reduced to a single root digit. This treats the plate as one combined vibration rather than only its numeric part.
+
+### Personal Day / Month / Year numbers
+
+A standard numerology "forecast" technique that layers short-term cycles on top of the lifelong Mulank/Bhagyank:
+
+- **Personal Year** = digits of (birth day + birth month + current year), reduced to one digit.
+- **Personal Month** = (Personal Year + current month), reduced to one digit.
+- **Personal Day** = (Personal Month + current day), reduced to one digit.
+
 ---
 
 ## 📁 Project structure
@@ -215,6 +236,8 @@ All UI strings and meanings live in `script.js`:
 - `LOSHU_REMEDIES` — how to strengthen each missing Lo Shu number, per language.
 - `LIFE_REMEDIES` — area-wise remedies (money, career, job, health, marriage, love) per root number, per language.
 - `INDIAN_NAMES` — the pool of auspicious Hindu boy/girl names.
+- `COMPOUND_MEANINGS_HI` / `COMPOUND_MEANINGS_MR` — Hindi/Marathi titles & text for the 10–52 compound-number table (the fortunate/caution flag is shared from the English `COMPOUND_MEANINGS`).
+- `DIR_I18N` / `KUA_GROUP_I18N` / `CITY_I18N` — translate compass directions, the Kua East/West group label and lucky-city names for the Lucky Essentials and Kua panels.
 
 To add a language, copy an existing block (e.g. `en`), translate the values, add a matching `PLANET_NAMES` entry, and add a `<button class="lang-btn" data-lang="xx">` in `index.html`.
 

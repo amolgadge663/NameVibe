@@ -423,6 +423,7 @@ body {
 
 /* ===================== DOB / COMPATIBILITY ===================== */
 .result-grid--two { grid-template-columns: repeat(2, 1fr); margin-bottom: 18px; }
+.result-grid--three { grid-template-columns: repeat(3, 1fr); margin-bottom: 18px; }
 .stat-note { font-size: .85rem; color: var(--accent); margin-top: 2px; }
 
 .compat-list { display: grid; gap: 12px; }
@@ -507,8 +508,37 @@ body {
 }
 .btn-refresh:hover { color: var(--text); background: var(--surface-2); }
 
+.iname-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.iname-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.iname-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.iname-name { font-weight: 700; font-size: 1.05rem; color: var(--text); }
+.iname-meaning { font-size: .88rem; color: var(--text-dim); line-height: 1.4; margin: 0; }
+.iname-source {
+  align-self: flex-start;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(169, 139, 255, .12);
+  border: 1px solid rgba(169, 139, 255, .3);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
 @media (max-width: 540px) {
   .result-grid--two { grid-template-columns: 1fr; }
+  .result-grid--three { grid-template-columns: 1fr; }
 }
 
 /* ===================== MAIN GENDER SELECTOR ===================== */
@@ -591,6 +621,27 @@ body {
 .favor-factor strong { font-variant-numeric: tabular-nums; }
 .favor-factor.is-good strong { color: var(--good); }
 .favor-factor.is-warn strong { color: var(--warn); }
+
+/* ===================== PERSONALITY & LIFE-PATH PROFILE ===================== */
+.panel--profile { border-color: var(--accent); }
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.profile-card {
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(16px, 3vw, 22px);
+}
+.profile-card-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--gold-soft);
+  margin-bottom: 8px;
+}
+.profile-card-text { color: var(--text); font-size: .92rem; line-height: 1.55; margin: 0; }
 
 /* ===================== INNER NUMBERS (SOUL + PERSONALITY) ===================== */
 .panel--soul { border-color: var(--accent); }
@@ -711,6 +762,9 @@ body {
 
 /* ===================== KUA ===================== */
 .panel--kua { border-color: var(--accent); }
+
+/* ===================== PERSONAL DAY/MONTH/YEAR CYCLE ===================== */
+.panel--cycle { border-color: var(--gold); }
 
 /* ===================== LO SHU GRID ===================== */
 .loshu-wrap {
@@ -843,7 +897,7 @@ body {
 .suggest-best .sb-num { color: var(--good); font-weight: 700; }
 
 /* ===================== RESULTS ACTIONS (PDF) ===================== */
-.results-actions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.results-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .btn-pdf { flex: 0 1 auto; }
 
 /* ===================== HERO DECORATIONS ===================== */
@@ -920,6 +974,63 @@ main, footer { position: relative; z-index: 1; }
   0%   { opacity: 1;  transform: translate(-50%, -50%) scale(var(--sf-s0, 1)) rotate(0deg); }
   100% { opacity: 0;  transform: translate(calc(-50% + var(--sf-dx, 0px)), calc(-50% + var(--sf-dy, 40px))) scale(.2) rotate(140deg); }
 }
+
+/* ===================== MOBILE / VEHICLE NUMBER CHECKS ===================== */
+.numcheck-section { padding-block: clamp(32px, 6vw, 56px); }
+.numcheck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+.numcheck-card {
+  background: rgba(36, 26, 77, .55);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(18px, 3.5vw, 28px);
+}
+.numcheck-card .name-input { margin-top: 4px; }
+.numcheck-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: .88rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.numcheck-toggle input[type="checkbox"] {
+  width: 17px; height: 17px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.numcheck-result {
+  margin-top: 14px;
+  min-height: 1.4em;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.numcheck-result .nc-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--gold);
+  font-weight: 800;
+  margin-right: 8px;
+}
+.numcheck-result.is-good    { color: var(--good); }
+.numcheck-result.is-warn    { color: var(--warn); }
+.numcheck-result.is-neutral { color: var(--gold); }
+.numcheck-result.is-good    .nc-num { color: var(--good); }
+.numcheck-result.is-warn    .nc-num { color: var(--warn); }
+
+/* ===================== SHARE BUTTON ===================== */
+.btn-share { flex: 0 1 auto; }
 
 /* ===================== CHART ===================== */
 .chart-section, .meanings-section, .about-section {
@@ -1195,9 +1306,11 @@ main, footer { position: relative; z-index: 1; }
 #results.pdf-capture .stat-card,
 #results.pdf-capture .panel,
 #results.pdf-capture .inner-card,
+#results.pdf-capture .profile-card,
 #results.pdf-capture .lucky-tile,
 #results.pdf-capture .remedy-tile,
-#results.pdf-capture .suggest-chip {
+#results.pdf-capture .suggest-chip,
+#results.pdf-capture .iname-card {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;

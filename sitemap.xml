@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Replace YOUR-USERNAME.github.io/namevibe with your live URL. -->
+<!-- Live URL: https://amolgadge663.github.io/NameVibe/ -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://YOUR-USERNAME.github.io/namevibe/</loc>
-    <lastmod>2026-08-01</lastmod>
+    <loc>https://amolgadge663.github.io/NameVibe/</loc>
+    <lastmod>2026-08-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://YOUR-USERNAME.github.io/namevibe/" />
-    <xhtml:link rel="alternate" hreflang="hi" href="https://YOUR-USERNAME.github.io/namevibe/" />
-    <xhtml:link rel="alternate" hreflang="mr" href="https://YOUR-USERNAME.github.io/namevibe/" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://YOUR-USERNAME.github.io/namevibe/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://amolgadge663.github.io/NameVibe/" />
+    <xhtml:link rel="alternate" hreflang="hi" href="https://amolgadge663.github.io/NameVibe/" />
+    <xhtml:link rel="alternate" hreflang="mr" href="https://amolgadge663.github.io/NameVibe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://amolgadge663.github.io/NameVibe/" />
   </url>
 </urlset>
